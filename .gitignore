@@ -3,7 +3,7 @@
 .depend
 mtask
 terminal
-bios_example*
+bios_example5
 test_util
 tinyos_shell
 validate_api
