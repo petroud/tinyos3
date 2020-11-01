@@ -7,7 +7,7 @@ void bootfunc() {
 
 int main()
 {
-  vm_boot(bootfunc, 4, 0);
+  vm_boot(bootfunc, 8, 0);
   return 0;
 }
 
