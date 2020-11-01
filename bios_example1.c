@@ -8,8 +8,8 @@ void bootfunc() {
 int main()
 {
   vm_boot(bootfunc, 4, 0);
-  fprintf(stdout, "Boot completed, Moving on...");
-  
+  fprintf(stdout, "Boot completed, Moving on...\n");
+
   return 0;
 }
 
