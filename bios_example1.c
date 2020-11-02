@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 void bootfunc() {
-  fprintf(stderr, "Hello from core %u\n", cpu_core_id);
+  fprintf(stderr, "Hello from core %u\n!", cpu_core_id);
 }
 
 int main()
