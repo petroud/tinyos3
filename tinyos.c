@@ -58,7 +58,6 @@ Tid_t CreateThread(Task task, int argl, void* args){
 void ThreadExit(int exitval){
 
        CURCORE.current_thread->state = EXITED;
-       sched_que
 }
 
 
