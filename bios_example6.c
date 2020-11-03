@@ -13,7 +13,7 @@ void alarm_handler()
 
 /*Core boot function*/
 void bootfunc(){
-  int alarm_time = cpu_core_id+1;
+  int alarm_time = cpu_core_id+2;
 
 	fprintf(stderr, "⟶  Core %u gets an alarm at %d sec.\n", cpu_core_id, alarm_time);
   
