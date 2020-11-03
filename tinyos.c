@@ -8,6 +8,9 @@
 #include "kernel_proc.h"
 #include "util.h"
 
+#define ZERO 0
+
+static int thread_id_seq = ZERO;
 
 /**
  * This function returns the PID of the current process running
@@ -39,8 +42,11 @@ Tid_t CreateThread(Task task, int argl, void* args){
     //Checking if the PID returned is invalid
     if (curThreadProcess==NULL){
          FATAL("Illegal current process PID occured, when attempting new thread creation");
+         return ZERO;
     }else{
-        /* code */
+        TCB* tcb = spawn_thread(get_pcb(curThreadProcess), task);
+        Tid_t tid = (uintptr_t)thread_id_seq++;
+        return tid;
     }
 }
 
@@ -50,7 +56,9 @@ Tid_t CreateThread(Task task, int argl, void* args){
  * @arg int, the exit value of the thread
  */
 void ThreadExit(int exitval){
-    
+
+       CURCORE.current_thread->state = EXITED;
+       sched_que
 }
 
 
