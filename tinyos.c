@@ -13,6 +13,24 @@
 static int thread_id_seq = ZERO;
 
 /**
+ * This function starts the execution of a process
+ * by calling the system function sys_exec and passing
+ * the task and its arguments to it.
+ */
+Pid_t Exec(Task task, int argl, void* args){
+    Pid_t new = sys_exec(task, argl, args);
+    return new;    
+}
+
+/**
+ * When this function is called by a process thread, the process terminates
+  and sets its exit code to val. 
+ */
+void Exit(int val){
+    
+}
+
+/**
  * This function returns the PID of the current process running
  */
 Pid_t GetPid(void){
