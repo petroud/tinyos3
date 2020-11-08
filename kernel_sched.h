@@ -99,6 +99,7 @@ enum SCHED_CAUSE {
 */
 typedef struct thread_control_block {
 	PCB* owner_pcb; /**< @brief This is null for a free TCB */
+  PTCB* owner_ptcb; /**< @brief This is the PTCB that owns this TCB */
 
 	cpu_context_t context; /**< @brief The thread context */
 
@@ -129,6 +130,27 @@ typedef struct thread_control_block {
 	enum SCHED_CAUSE last_cause; /**< @brief The endcause for the last time-slice */
 
 } TCB;
+
+/**
+ * @brief The thread control block
+ * 
+ *  This type of object is used for the multi-threaded design of the OS. Every PCB object can be 
+ * linked to "N" PTCB objects and every PTCB object is linked to only one TCB object.
+ */
+typedef struct process_thread_control_block{
+
+  TCB* tcb;         /**< @brief This is the TCB linked to this PTCB*/
+
+  Task task;        /**< @brief The task of this thread*/
+  int argl;         /**< @brief The main thread's argument length*/
+  void* args;       /**< @brief The main thread's argument string*/
+
+  int exited;       /**< @brief 0 if it hasn't exited, 1 if it has exited*/
+  int detached;     /**< @brief 0 if it hasn't detached, 1 if it has detached*/
+  CondVar exit_cv;  /**< @brief Thread's condition variable upon exit*/
+
+  int refcount;     /**< @brief Counter og the number of threads this process runs*/
+} PTCB;
 
 /** @brief Thread stack size.
 
