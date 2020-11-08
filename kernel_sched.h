@@ -129,7 +129,7 @@ typedef struct thread_control_block {
 	enum SCHED_CAUSE curr_cause; /**< @brief The endcause for the current time-slice */
 	enum SCHED_CAUSE last_cause; /**< @brief The endcause for the last time-slice */
 
-} TCB; /**/
+} TCB;
 
 /**
  * @brief The thread control block
