@@ -150,6 +150,7 @@ typedef struct process_thread_control_block{
   CondVar exit_cv;  /**< @brief Thread's condition variable upon exit*/
 
   int refcount;     /**< @brief Counter og the number of threads this process runs*/
+  rlnode ptcb_list_node; /**< @brief The rlnode variale connecting this node to the list */
 } PTCB;
 
 /** @brief Thread stack size.
@@ -219,7 +220,7 @@ extern CCB cctx[MAX_CORES];
     @param func The function to execute in the new thread.
     @returns  A pointer to the TCB of the new thread, in the @c INIT state.
 */
-TCB* spawn_thread(PCB* pcb, void (*func)());
+TCB* spawn_thread(PCB* pcb, PTCB* ptcb, void (*func)());
 
 /**
   @brief Wakeup a blocked thread.
