@@ -60,7 +60,30 @@ typedef struct process_control_block {
 
   FCB* FIDT[MAX_FILEID];  /**< @brief The fileid table of the process */
 
+  rlnode ptcb_list;       /**< @brief The list of PTCBs of the process block */
+  int thread_count;       /**< @brief The number of threads owned by the PTCBs of this process */
+
 } PCB;
+
+typedef struct process_thread_control_block {
+  TCB* tcb;               /**< @brief The TCB shell of the PTCB */
+
+  Task task;              /**< @brief The task that the PTCB executes */
+  int argl;               /**< @brief The arguments length to be passed to task during the beginning of the execution*/
+  void* args;             /**< @brief The arguments string for the task */
+
+  int exitval;            /**< @brief The exit value of the process */
+
+  int exited;             /**< @brief Integer variable used with boolean logic to specify if the thread had exited */
+  int detached;           /**< @brief Integer variable used with boolean logic to specify if the thread had been detached */
+
+  CondVar exit_cv;        /**< @Condition variable for */
+
+  int refcount;            
+
+  rlnode ptcb_list_node;
+
+} PTCB;
 
 
 /**
