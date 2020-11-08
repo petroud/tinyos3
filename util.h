@@ -320,6 +320,7 @@ typedef struct resource_list_node {
     rlnode_ptr node;
     intptr_t num;
     uintptr_t unum;
+	
   };
 
   /* list pointers */

@@ -103,6 +103,12 @@ static void thread_start()
 	assert(0);
 }
 
+
+/* Initialize a PTCB */
+static inline void initiliaze_PTCB(PTCB* ptcb){
+  
+}
+
 /*
   Initialize and return a new TCB
 */

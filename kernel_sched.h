@@ -131,6 +131,26 @@ typedef struct thread_control_block {
 
 } TCB;
 
+typedef struct process_thread_control_block {
+  TCB* tcb;               /**< @brief The TCB shell of the PTCB */
+
+  Task task;              /**< @brief The task that the PTCB executes */
+  int argl;               /**< @brief The arguments length to be passed to task during the beginning of the execution*/
+  void* args;             /**< @brief The arguments string for the task */
+
+  int exitval;            /**< @brief The exit value of the process */
+
+  int exited;             /**< @brief Integer variable used with boolean logic to specify if the thread had exited */
+  int detached;           /**< @brief Integer variable used with boolean logic to specify if the thread had been detached */
+
+  CondVar exit_cv;        /**< @Condition variable for */
+
+  int refcount;            
+
+  rlnode ptcb_list_node;
+
+} PTCB;
+
 /** @brief Thread stack size.
 
   The default thread stack size in TinyOS is 128 kbytes.
