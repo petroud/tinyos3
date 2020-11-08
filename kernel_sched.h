@@ -131,24 +131,25 @@ typedef struct thread_control_block {
 
 } TCB;
 
-typedef struct process_thread_control_block {
-  TCB* tcb;               /**< @brief The TCB shell of the PTCB */
+/**
+ * @brief The thread control block
+ * 
+ *  This type of object is used for the multi-threaded design of the OS. Every PCB object can be 
+ * linked to "N" PTCB objects and every PTCB object is linked to only one TCB object.
+ */
+typedef struct process_thread_control_block{
 
-  Task task;              /**< @brief The task that the PTCB executes */
-  int argl;               /**< @brief The arguments length to be passed to task during the beginning of the execution*/
-  void* args;             /**< @brief The arguments string for the task */
+  TCB* tcb;         /**< @brief This is the TCB linked to this PTCB*/
 
-  int exitval;            /**< @brief The exit value of the process */
+  Task task;        /**< @brief The task of this thread*/
+  int argl;         /**< @brief The main thread's argument length*/
+  void* args;       /**< @brief The main thread's argument string*/
 
-  int exited;             /**< @brief Integer variable used with boolean logic to specify if the thread had exited */
-  int detached;           /**< @brief Integer variable used with boolean logic to specify if the thread had been detached */
+  int exited;       /**< @brief 0 if it hasn't exited, 1 if it has exited*/
+  int detached;     /**< @brief 0 if it hasn't detached, 1 if it has detached*/
+  CondVar exit_cv;  /**< @brief Thread's condition variable upon exit*/
 
-  CondVar exit_cv;        /**< @Condition variable for */
-
-  int refcount;            
-
-  rlnode ptcb_list_node;
-
+  int refcount;     /**< @brief Counter og the number of threads this process runs*/
 } PTCB;
 
 /** @brief Thread stack size.
