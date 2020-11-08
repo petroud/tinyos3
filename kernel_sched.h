@@ -146,11 +146,14 @@ typedef struct process_thread_control_block{
   int argl;         /**< @brief The main thread's argument length*/
   void* args;       /**< @brief The main thread's argument string*/
 
-  int exited;       /**< @brief 0 if it hasn't exited, 1 if it has exited*/
-  int detached;     /**< @brief 0 if it hasn't detached, 1 if it has detached*/
-  CondVar exit_cv;  /**< @brief Thread's condition variable upon exit*/
+  int exited;             /**< @brief 0 if it hasn't exited, 1 if it has exited*/
+  int detached;           /**< @brief 0 if it hasn't detached, 1 if it has detached*/
+  CondVar exit_cv;        /**< @brief Thread's condition variable upon exit*/
 
-  int refcount;     /**< @brief Counter og the number of threads this process runs*/
+  int refcount;           /**< @brief Counter of the number of threads this process runs*/
+
+  rlnode ptcb_list_node;  /**< @brief Connection with process by "Resource List" node*/   
+
 } PTCB;
 
 /** @brief Thread stack size.
