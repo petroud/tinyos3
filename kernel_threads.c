@@ -45,15 +45,43 @@ void rcdec(PTCB* ptcb)
   }
 }
 
-Tid_t CreateThread(Task task, int argl, void* args);
+void start_common_thread()
 {
-  PCB
+  int exitval;
+
+  Task call = CURTHREAD->owner_ptcb->task;
+  int argl = CURTHREAD->owner_ptcb->argl;
+  void* args = CURTHREAD->owner_ptcb->args;
+
+  exitval = call(argl,args);
+  ThreadExit(exitval);
 }
+
+
 /** 
   @brief Create a new thread in the current process.
   */
 Tid_t sys_CreateThread(Task task, int argl, void* args)
-{
+{ 
+  PCB* pcb = CURPROC;
+  PTCB* ptcb = spawn_ptcb(pcb);
+  TCB* common_thread = spawn_thread(pcb,ptcb,start_common_thread);
+
+  ptcb->argl = argl;
+  ptcb->args = args;
+  ptcb->task = task;
+
+  rlnode_init(& ptcb->ptcb_list_node, NULL);
+  rlnode* node = (rlnode*) malloc(sizeof(rlnode));
+  rlnode_new(node)->obj = ptcb;
+  rlist_push_back(& pcb->ptcb_list, node);
+  
+  if(task!=NULL){
+    wakeup(common_thread);
+    pcb->thread_count++;
+    return (Tid_t)(common_thread->owner_ptcb);
+  }
+
 	return NOTHREAD;
 }
 

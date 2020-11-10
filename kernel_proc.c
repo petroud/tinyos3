@@ -125,17 +125,7 @@ void start_main_thread()
   Exit(exitval);
 }
 
-void start_common_thread()
-{
-  int exitval;
 
-  Task call = CURTHREAD->owner_ptcb->task;
-  int argl = CURTHREAD->owner_ptcb->argl;
-  void* args = CURTHREAD->owner_ptcb->args;
-
-  exitval = call(argl,args);
-  ThreadExit(exitval);
-}
 /*
 	System call to create a new process.
  */
