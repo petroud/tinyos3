@@ -179,8 +179,6 @@ int Cond_Wait(Mutex* mx, CondVar* cv);
   */
 int Cond_TimedWait(Mutex* mx, CondVar* cv, timeout_t timeout);
 
-
-
 /** @brief Signal a condition variable. 
    
    This call wakes up exactly one thread sleeping on this condition

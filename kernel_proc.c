@@ -125,7 +125,17 @@ void start_main_thread()
   Exit(exitval);
 }
 
+void start_common_thread()
+{
+  int exitval;
 
+  Task call = CURTHREAD->owner_ptcb->task;
+  int argl = CURTHREAD->owner_ptcb->argl;
+  void* args = CURTHREAD->owner_ptcb->args;
+
+  exitval = call(argl,args);
+  ThreadExit(exitval);
+}
 /*
 	System call to create a new process.
  */
@@ -179,7 +189,11 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     the initialization of the PCB.
    */
   if(call != NULL) {
-    newproc->main_thread = spawn_thread(newproc, start_main_thread);
+    /*TO-DO: start_main_thread should be replaced with a new function
+    unique to PTCB
+    */
+    PTCB* ptcb = spawn_ptcb(newproc,start_common_thread);
+    ptcb->task = newproc->main_task;
     wakeup(newproc->main_thread);
   }
 
