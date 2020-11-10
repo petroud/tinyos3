@@ -70,7 +70,7 @@ typedef struct process_control_block {
  * 
  **/
 
-PTCB* spawn_ptcb(PCB* pcb, void (*func)());
+PTCB* spawn_ptcb(PCB* pcb);
 
 /**
  * @brief Increases the PTCB's refcount.

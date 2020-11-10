@@ -6,25 +6,20 @@
 /*
   Initialize a new PTCB
 */
-PTCB* spawn_ptcb(PCB* pcb, void (*func)())
+PTCB* spawn_ptcb(PCB* pcb)
 {
 	// Allocate a new PTCB 
 	PTCB* ptcb = (PTCB*)xmalloc(sizeof(PTCB));
 
-	ptcb->task = func;
+	ptcb->task = NULL;
 	ptcb->detached = 0;
 	ptcb->exited = 0;
-	ptcb->tcb = pcb->main_task;
+	ptcb->tcb = NULL;
 	ptcb->exit_cv = COND_INIT;
 	ptcb->argl = 0;
 	ptcb->args = NULL;
-	ptcb->refcount = 0;
+	ptcb->refcount = 1;
 
-	/*@petroud I changed it from this:
-	rlnode_init(& ptcb->ptcb_list_node,NULL);
-	to this:
-	*/
-	rlist_push_back(& pcb->ptcb_list,rlnode_init(& ptcb->ptcb_list_node,ptcb));
 	pcb->thread_count ++;
 	return ptcb;
 }
@@ -50,6 +45,10 @@ void rcdec(PTCB* ptcb)
   }
 }
 
+Tid_t CreateThread(Task task, int argl, void* args);
+{
+  PCB
+}
 /** 
   @brief Create a new thread in the current process.
   */
