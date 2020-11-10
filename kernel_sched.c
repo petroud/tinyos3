@@ -104,32 +104,6 @@ static void thread_start()
 	assert(0);
 }
 
-
-/* Initialize a PTCB */
-static inline void initiliaze_PTCB(PTCB* ptcb){
-  
-}
-
-PTCB* spawn_ptcb(PCB* pcb, void (*func)()){
-
-	// Allocate a new PTCB 
-	PTCB* ptcb = (PTCB*)xmalloc(sizeof(PTCB));
-
-	ptcb->task = func;
-	ptcb->detached = 0;
-	ptcb->exited = 0;
-	ptcb->tcb = NULL;
-	ptcb->exit_cv = COND_INIT;
-	ptcb->argl = 0;
-	ptcb->args = NULL;
-	ptcb->refcount = 0;
-
-	rlnode_init(& ptcb->ptcb_list_node,NULL);
-	rlnode_init(& pcb->ptcb_list, & ptcb->ptcb_list_node);
-
-	return ptcb;
-}
-
 /*
   Initialize and return a new TCB
 */

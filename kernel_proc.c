@@ -125,7 +125,17 @@ void start_main_thread()
   Exit(exitval);
 }
 
+void start_common_thread()
+{
+  int exitval;
 
+  Task call = CURTHREAD->owner_ptcb->task;
+  int argl = CURTHREAD->owner_ptcb->argl;
+  void* args = CURTHREAD->owner_ptcb->args;
+
+  exitval = call(argl,args);
+  ThreadExit(exitval);
+}
 /*
 	System call to create a new process.
  */
@@ -179,7 +189,25 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     the initialization of the PCB.
    */
   if(call != NULL) {
-    newproc->main_thread = spawn_thread(newproc, start_main_thread);
+    PTCB* ptcb = spawn_ptcb(newproc);
+
+    TCB* main_thread = spawn_thread(newproc, ptcb, start_main_thread);
+
+    ptcb->tcb = main_thread;
+    ptcb->task = call;
+    ptcb->argl = argl;
+    ptcb->args = args;
+
+    rlnode_init(& ptcb->ptcb_list_node, NULL);
+
+    rlnode_init(& newproc->ptcb_list, NULL);
+    rlnode* node = (rlnode*) malloc(sizeof(rlnode));
+    rlnode_new(node)->obj = ptcb;
+    rlist_push_back(& newproc->ptcb_list, node);
+
+    newproc->thread_count ++;
+    newproc->main_thread = main_thread;
+    
     wakeup(newproc->main_thread);
   }
 
