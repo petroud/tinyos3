@@ -3,6 +3,7 @@
 #include "kernel_cc.h"
 #include "kernel_proc.h"
 #include "kernel_streams.h"
+#include "unit_testing.h"
 
 
 /* 
@@ -180,9 +181,10 @@ Pid_t sys_Exec(Task call, int argl, void* args)
    */
   if(call != NULL) {
     PTCB* ptcb = spawn_ptcb(newproc);
+    ASSERT(ptcb!=NULL);
 
     TCB* main_thread = spawn_thread(newproc, ptcb, start_main_thread);
-
+    
     ptcb->tcb = main_thread;
     ptcb->task = call;
     ptcb->argl = argl;
@@ -195,10 +197,17 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     rlnode_new(node)->obj = ptcb;
     rlist_push_back(& newproc->ptcb_list, node);
 
-    newproc->thread_count ++;
+    newproc->thread_count++;
     newproc->main_thread = main_thread;
     
-    wakeup(newproc->main_thread);
+    ASSERT(is_rlist_empty(& ptcb->ptcb_list_node));
+    ASSERT(rlist_find(& newproc->ptcb_list, ptcb, NULL) != NULL);
+    ASSERT(rlist_len(& newproc->ptcb_list) == 1);
+
+    int valueWokenUp = wakeup(newproc->main_thread);
+
+    ASSERT(valueWokenUp == 1);
+    ASSERT(newproc->thread_count == 2);
   }
 
 

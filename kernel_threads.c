@@ -2,6 +2,7 @@
 #include "tinyos.h"
 #include "kernel_sched.h"
 #include "kernel_proc.h"
+#include "unit_testing.h"
 
 /*
   Initialize a new PTCB
@@ -65,6 +66,7 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
 { 
   PCB* pcb = CURPROC;
   PTCB* ptcb = spawn_ptcb(pcb);
+  
   TCB* common_thread = spawn_thread(pcb,ptcb,start_common_thread);
 
   ptcb->argl = argl;
@@ -77,7 +79,10 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
   rlist_push_back(& pcb->ptcb_list, node);
   
   if(task!=NULL){
-    wakeup(common_thread);
+    ASSERT(pcb->thread_count == rlist_len(& pcb->ptcb_list));
+    int wakeup_value = wakeup(common_thread);
+    ASSERT(wakeup_value == 1);
+
     pcb->thread_count++;
     return (Tid_t)(common_thread->owner_ptcb);
   }
