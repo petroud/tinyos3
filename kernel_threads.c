@@ -50,9 +50,9 @@ void start_common_thread()
 {
   int exitval;
 
-  Task call = CURTHREAD->owner_ptcb->task;
-  int argl = CURTHREAD->owner_ptcb->argl;
-  void* args = CURTHREAD->owner_ptcb->args;
+  Task call = CURTHREAD->ptcb->task;
+  int argl = CURTHREAD->ptcb->argl;
+  void* args = CURTHREAD->ptcb->args;
 
   exitval = call(argl,args);
   ThreadExit(exitval);
@@ -84,7 +84,7 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
     ASSERT(wakeup_value == 1);
 
     pcb->thread_count++;
-    return (Tid_t)(common_thread->owner_ptcb);
+    return (Tid_t)(common_thread->ptcb);
   }
 
 	return NOTHREAD;
