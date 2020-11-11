@@ -115,21 +115,29 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
   */
 int sys_ThreadDetach(Tid_t tid)
 {
+  //What's the Tid_t of the current thread?
   Tid_t tidCur = sys_ThreadSelf();
+
+  //What's the PTCB corresponding to the Tid_t given as argument
   PTCB* ptcb = (PTCB*)tid;
 
+  //Check if the PTCB exists in the PTCB list of the current process
   if(rlist_find(& CURPROC->ptcb_list,ptcb,NULL) == NULL){
+    //If it does not exist in the list or the find function returns NULL then error returns
     return -1;
   }
 
+  //Check if a thread tries to detach itself
   if(tid == tidCur){
     return 0;
   }
   
+  //Check if the tid given is ZERO or if the corresponding PTCB is exited
   if(tid==NOTHREAD || ptcb->exited == 1){
     return -1;
   }
 
+  //If everything is normal detach the thread which was given as argument
   ptcb->exited = 1;
   kernel_broadcast(& ptcb->exit_cv);
   ptcb->refcount = 0;
