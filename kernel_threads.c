@@ -89,7 +89,9 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
 
   ASSERT(wakeup_value == 1);
 
-  return (Tid_t) new_thread->ptcb;
+  ptcb->refcount++;
+
+  return (Tid_t)ptcb;
 }
 
 /**
@@ -113,7 +115,26 @@ int sys_ThreadJoin(Tid_t tid, int* exitval)
   */
 int sys_ThreadDetach(Tid_t tid)
 {
-	return -1;
+  Tid_t tidCur = sys_ThreadSelf();
+  PTCB* ptcb = (PTCB*)tid;
+
+  if(rlist_find(& CURPROC->ptcb_list,ptcb,NULL) == NULL){
+    return -1;
+  }
+
+  if(tid == tidCur){
+    return 0;
+  }
+  
+  if(tid==NOTHREAD || ptcb->exited == 1){
+    return -1;
+  }
+
+  ptcb->exited = 1;
+  kernel_broadcast(& ptcb->exit_cv);
+  ptcb->refcount = 0;
+
+  return 0;
 }
 
 /**
