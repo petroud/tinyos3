@@ -145,6 +145,8 @@ typedef struct process_thread_control_block{
   int argl;         /**< @brief The main thread's argument length*/
   void* args;       /**< @brief The main thread's argument string*/
 
+  int exitval;
+
   int exited;       /**< @brief 0 if it hasn't exited, 1 if it has exited*/
   int detached;     /**< @brief 0 if it hasn't detached, 1 if it has detached*/
   CondVar exit_cv;  /**< @brief Thread's condition variable upon exit*/

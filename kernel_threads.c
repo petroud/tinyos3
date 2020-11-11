@@ -19,9 +19,8 @@ PTCB* spawn_ptcb(PCB* pcb)
 	ptcb->exit_cv = COND_INIT;
 	ptcb->argl = 0;
 	ptcb->args = NULL;
+  ptcb->exitval = 0;
 	ptcb->refcount = 1;
-
-	pcb->thread_count ++;
 	return ptcb;
 }
 
@@ -63,31 +62,32 @@ void start_common_thread()
   @brief Create a new thread in the current process.
   */
 Tid_t sys_CreateThread(Task task, int argl, void* args)
-{ 
-  PCB* pcb = CURPROC;
-  PTCB* ptcb = spawn_ptcb(pcb);
-  
-  TCB* common_thread = spawn_thread(pcb,ptcb,start_common_thread);
+{
+  PCB* curproc = CURPROC;
 
+  PTCB* ptcb = spawn_ptcb(CURPROC);
+
+  TCB* new_thread = spawn_thread(curproc, ptcb, start_common_thread);
+
+  ptcb->task = task;
   ptcb->argl = argl;
   ptcb->args = args;
-  ptcb->task = task;
 
   rlnode_init(& ptcb->ptcb_list_node, NULL);
+
   rlnode* node = (rlnode*) malloc(sizeof(rlnode));
   rlnode_new(node)->obj = ptcb;
-  rlist_push_back(& pcb->ptcb_list, node);
-  
-  if(task!=NULL){
-    ASSERT(pcb->thread_count == rlist_len(& pcb->ptcb_list));
-    int wakeup_value = wakeup(common_thread);
-    ASSERT(wakeup_value == 1);
+  rlist_push_back(& curproc->ptcb_list, node);
 
-    pcb->thread_count++;
-    return (Tid_t)(common_thread->ptcb);
-  }
+  curproc->thread_count++;
 
-	return NOTHREAD;
+  ASSERT(curproc->thread_count == rlist_len(& curproc->ptcb_list));
+
+  int wakeup_value = wakeup(new_thread);
+
+  ASSERT(wakeup_value == 1);
+
+  return (Tid_t) new_thread->ptcb;
 }
 
 /**
