@@ -3,6 +3,8 @@
 #include "kernel_sched.h"
 #include "kernel_proc.h"
 #include "unit_testing.h"
+#include "kernel_cc.h"
+
 
 /*
   Initialize a new PTCB
@@ -119,6 +121,31 @@ int sys_ThreadDetach(Tid_t tid)
   */
 void sys_ThreadExit(int exitval)
 {
+  
+  /* Acquire the ptcb of the current thread running*/
+  PTCB* ptcb = CURTHREAD->ptcb;
+  /* Mark the ptcb as exited and set the exit value upon the function parameter */
+  ptcb->exited = 1;
+  ptcb->exitval = exitval;
 
+  /* Kernel informs all the waiting CVs that a CV is exited and it removes it from the ring*/
+  kernel_broadcast(& ptcb->exit_cv);
+
+
+  /* If the process has no other PTCBs running threads it terminates */
+  if (ptcb->tcb->owner_pcb->thread_count == 0)
+  {
+    sys_Exit(exitval);
+  }
+
+  /* Else the thread count of the PCB is reduced by 1 and the node corresponding to the ptcb of the thread terminated is deleted from the list of ptcbs */
+  ptcb->tcb->owner_pcb->thread_count--;
+  rlist_remove(& ptcb->ptcb_list_node);
+
+  /* Clear the memory address containing previously the ptcb */
+  free(ptcb);
+
+  /* Release the kernel for future use */
+  kernel_sleep(EXITED, SCHED_USER);
 }
 
