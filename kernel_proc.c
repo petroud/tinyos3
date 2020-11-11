@@ -36,6 +36,7 @@ static inline void initialize_PCB(PCB* pcb)
   pcb->pstate = FREE;
   pcb->argl = 0;
   pcb->args = NULL;
+  pcb->thread_count = 0;
 
   for(int i=0;i<MAX_FILEID;i++)
     pcb->FIDT[i] = NULL;
@@ -185,7 +186,6 @@ Pid_t sys_Exec(Task call, int argl, void* args)
 
     TCB* main_thread = spawn_thread(newproc, ptcb, start_main_thread);
     
-    ptcb->tcb = main_thread;
     ptcb->task = call;
     ptcb->argl = argl;
     ptcb->args = args;
@@ -198,6 +198,7 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     rlist_push_back(& newproc->ptcb_list, node);
 
     newproc->thread_count++;
+    fprintf(stderr, "First thread count: %d\n", newproc->thread_count);
     newproc->main_thread = main_thread;
     
     ASSERT(is_rlist_empty(& ptcb->ptcb_list_node));
@@ -207,7 +208,7 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     int valueWokenUp = wakeup(newproc->main_thread);
 
     ASSERT(valueWokenUp == 1);
-    ASSERT(newproc->thread_count == 2);
+    ASSERT(newproc->thread_count == 1);
   }
 
 
