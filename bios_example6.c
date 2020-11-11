@@ -44,7 +44,7 @@ void boot_msg(){
    "                    |___/                                         \n\n");
     printf("-- A version of TinyOS made by a team of students ----------------\n\n");
     printf("⟶  Boot process initialized, system setting up...\n");
-    printf("⟶  Assigning wake up times...!\n\n");
+    printf("⟶  Assigning wake up times...\n\n");
 }
 
 
