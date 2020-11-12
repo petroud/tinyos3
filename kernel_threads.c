@@ -12,7 +12,8 @@
 PTCB* spawn_ptcb(PCB* pcb)
 {
 	// Allocate a new PTCB 
-	PTCB* ptcb = (PTCB*)xmalloc(sizeof(PTCB));
+	PTCB* ptcb = (PTCB*)malloc(sizeof(PTCB));
+  ASSERT (ptcb);
 
 	ptcb->task = NULL;
 	ptcb->detached = 0;
@@ -23,6 +24,9 @@ PTCB* spawn_ptcb(PCB* pcb)
 	ptcb->args = NULL;
   ptcb->exitval = 0;
 	ptcb->refcount = 1;
+
+  rlnode_init(& ptcb->ptcb_list_node, NULL);
+
 	return ptcb;
 }
 
@@ -56,7 +60,7 @@ void start_common_thread()
   void* args = CURTHREAD->ptcb->args;
 
   exitval = call(argl,args);
-  ThreadExit(exitval);
+  sys_ThreadExit(exitval);
 }
 
 
@@ -69,27 +73,23 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
 
   PTCB* ptcb = spawn_ptcb(CURPROC);
 
-  TCB* new_thread = spawn_thread(curproc, ptcb, start_common_thread);
-
   ptcb->task = task;
   ptcb->argl = argl;
   ptcb->args = args;
 
-  rlnode_init(& ptcb->ptcb_list_node, NULL);
-
-  rlnode* node = (rlnode*) malloc(sizeof(rlnode));
-  rlnode_new(node)->obj = ptcb;
-  rlist_push_back(& curproc->ptcb_list, node);
+  rlist_push_back(& curproc->ptcb_list, rlnode_init(&ptcb->ptcb_list_node, ptcb));
 
   curproc->thread_count++;
 
-  ASSERT(curproc->thread_count == rlist_len(& curproc->ptcb_list));
 
-  int wakeup_value = wakeup(new_thread);
+  if(task!=NULL){
+    TCB* new_thread = spawn_thread(curproc, ptcb, start_common_thread);
+    wakeup(new_thread);
+    ASSERT(curproc->thread_count == rlist_len(& curproc->ptcb_list));
+    return (Tid_t)ptcb;
+  }
 
-  ASSERT(wakeup_value == 1);
-
-  return (Tid_t) new_thread->ptcb;
+  return -1;
 }
 
 /**
@@ -97,23 +97,76 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
  */
 Tid_t sys_ThreadSelf()
 {
-	return (Tid_t) CURTHREAD;
+	return (Tid_t) CURTHREAD->ptcb;
 }
 
 /**
   @brief Join the given thread.
   */
-int sys_ThreadJoin(Tid_t tid, int* exitval)
-{
-	return -1;
+int sys_ThreadJoin(Tid_t tid, int* exitval){
+
+  //What's the Tid_t of the current thread?
+  Tid_t tidCur = sys_ThreadSelf();
+
+  //What's the PTCB corresponding to the Tid_t given as argument
+  PTCB* ptcb = (PTCB*)tid;
+
+  //Check if the PTCB exists in the PTCB list of the current process
+  if(rlist_find(& CURPROC->ptcb_list,ptcb,NULL) == NULL){
+    //If it does not exist in the list or the find function returns NULL then error returns
+    return -1;
+  }
+
+  if(tid==NOTHREAD || ptcb->detached==1 || ptcb->exited || tid == tidCur){
+    return -1;
+  }
+
+  rcinc(ptcb);
+
+  while(ptcb->exited!=1 && ptcb->detached!=1){
+    kernel_wait(&ptcb->exit_cv, SCHED_USER);
+  }
+
+  rcdec(ptcb);
+  return 0;
+
 }
+
+
 
 /**
   @brief Detach the given thread.
   */
 int sys_ThreadDetach(Tid_t tid)
 {
-	return -1;
+  //What's the Tid_t of the current thread?
+  Tid_t tidCur = sys_ThreadSelf();
+
+  //What's the PTCB corresponding to the Tid_t given as argument
+  PTCB* ptcb = (PTCB*)tid;
+
+  //Check if the PTCB exists in the PTCB list of the current process
+  if(rlist_find(& CURPROC->ptcb_list,ptcb,NULL) == NULL){
+    //If it does not exist in the list or the find function returns NULL then error returns
+    return -1;
+  }
+
+  //Check if a thread tries to detach itself
+  if(tid == tidCur){
+    return 0;
+  }
+  
+  //Check if the tid given is ZERO or if the corresponding PTCB is exited
+  if(tid==NOTHREAD || ptcb->exited == 1){
+    return -1;
+  }
+
+  //If everything is normal detach the thread which was given as argument
+  ptcb->detached=1;
+  kernel_broadcast(& ptcb->exit_cv);
+  ptcb->refcount = 0;
+
+  return 0;
 }
 
 /**
