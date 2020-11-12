@@ -198,7 +198,6 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     rlist_push_back(& newproc->ptcb_list, node);
 
     newproc->thread_count++;
-    fprintf(stderr, "First thread count: %d\n", newproc->thread_count);
     newproc->main_thread = main_thread;
     
     ASSERT(is_rlist_empty(& ptcb->ptcb_list_node));
