@@ -186,9 +186,10 @@ void sys_ThreadExit(int exitval)
 
 
   /* If the process has no other PTCBs running threads it terminates */
-  if (ptcb->tcb->owner_pcb->thread_count == 0)
+  if (ptcb->tcb->owner_pcb->thread_count == 1)
   {
     sys_Exit(exitval);
+    return;
   }
 
   /* Else the thread count of the PCB is reduced by 1 and the node corresponding to the ptcb of the thread terminated is deleted from the list of ptcbs */
