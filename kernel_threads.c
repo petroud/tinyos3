@@ -117,7 +117,11 @@ int sys_ThreadJoin(Tid_t tid, int* exitval){
     return -1;
   }
 
-  if(tid==NOTHREAD || ptcb->detached==1 || ptcb->exited || tid == tidCur){
+  if(ptcb->detached==1){
+    return -1;
+  }
+
+  if(tid==NOTHREAD || ptcb->exited || tid == tidCur){
     return -1;
   }
 
@@ -125,20 +129,24 @@ int sys_ThreadJoin(Tid_t tid, int* exitval){
 
   while(ptcb->exited==0 && ptcb->detached==0){
     //Thread might be exited or detached during while not before new cycle
-    if(ptcb->exited==1) break;
-    if(ptcb->detached==1) return -1;
+    if(ptcb->exited==1) {
+      *exitval = ptcb->exitval;      
+      break;
+    }
+    if(ptcb->detached==1){
+      *exitval = ptcb->exitval;
+      return -1;
+    } 
     kernel_wait(&ptcb->exit_cv, SCHED_USER);
   }
-
-  if(ptcb->exited==1 || ptcb->detached==1){
+  
+  if(ptcb->exited==1){
     kernel_broadcast(&ptcb->exit_cv);
     ptcb->refcount--;
     return 0;
-  }else{
-    ptcb->refcount--;
-    return -1;
   }
 
+  return -1;
 }
 
 
@@ -168,7 +176,7 @@ int sys_ThreadDetach(Tid_t tid)
   //If everything is normal detach the thread which was given as argument
   ptcb->detached=1;
   kernel_broadcast(& ptcb->exit_cv);
-  ptcb->refcount = 0;
+  ptcb->refcount=0;
 
   return 0;
 }
