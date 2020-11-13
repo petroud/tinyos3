@@ -4,7 +4,7 @@
 #include "kernel_proc.h"
 #include "unit_testing.h"
 #include "kernel_cc.h"
-
+#include "kernel_streams.h"
 
 /*
   Initialize a new PTCB
