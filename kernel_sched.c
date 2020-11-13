@@ -45,6 +45,9 @@
 volatile unsigned int active_threads = 0;
 Mutex active_threads_spinlock = MUTEX_INIT;
 
+/* A counter for keeping track of how many times yield has been called during system runtime */
+int yield_calls = 0;
+
 /* This is specific to Intel Pentium! */
 #define SYSTEM_PAGE_SIZE (1 << 12)
 
@@ -53,6 +56,9 @@ Mutex active_threads_spinlock = MUTEX_INIT;
 	(((sizeof(TCB) + SYSTEM_PAGE_SIZE - 1) / SYSTEM_PAGE_SIZE) * SYSTEM_PAGE_SIZE)
 
 #define THREAD_SIZE (THREAD_TCB_SIZE + THREAD_STACK_SIZE)
+
+//Max number of priority queues for the scheduler containing  waiting TCBs
+#define MAX_QUEUE_NUMBER 5
 
 //#define MMAPPED_THREAD_MEM
 #ifdef MMAPPED_THREAD_MEM
@@ -116,6 +122,7 @@ TCB* spawn_thread(PCB* pcb, PTCB* ptcb, void (*func)())
 	/* Set the owner */
 	tcb->owner_pcb = pcb;
 	tcb->ptcb = ptcb;
+	tcb->priority = 0;
 	ptcb->tcb = tcb;
 
 	/* Initialize the other attributes */
@@ -188,7 +195,7 @@ CCB cctx[MAX_CORES];
   Both of these structures are protected by @c sched_spinlock.
 */
 
-rlnode SCHED; /* The scheduler queue */
+rlnode SCHED[MAX_QUEUE_NUMBER]; /* The scheduler array of priority queues*/
 rlnode TIMEOUT_LIST; /* The list of threads with a timeout */
 Mutex sched_spinlock = MUTEX_INIT; /* spinlock for scheduler queue */
 
@@ -231,7 +238,7 @@ static void sched_register_timeout(TCB* tcb, TimerDuration timeout)
 static void sched_queue_add(TCB* tcb)
 {
 	/* Insert at the end of the scheduling list */
-	rlist_push_back(&SCHED, &tcb->sched_node);
+	rlist_push_back(&SCHED[tcb->priority], &tcb->sched_node);
 
 	/* Restart possibly halted cores */
 	cpu_core_restart_one();
@@ -287,20 +294,44 @@ static void sched_wakeup_expired_timeouts()
 
   *** MUST BE CALLED WITH sched_spinlock HELD ***
 */
+
+
 static TCB* sched_queue_select(TCB* current)
 {
-	/* Get the head of the SCHED list */
-	rlnode* sel = rlist_pop_front(&SCHED);
+  
+  /* Empty the timeout list up to the current time and wake up each thread */
+  TimerDuration curtime = bios_clock();
 
-	TCB* next_thread = sel->tcb; /* When the list is empty, this is NULL */
+  while(!is_rlist_empty(&TIMEOUT_LIST)) {
 
-	if (next_thread == NULL)
+  	TCB* tcb = TIMEOUT_LIST.next->tcb;
+
+  	if(tcb->wakeup_time > curtime) break;
+
+  	sched_make_ready(tcb);
+  }
+
+  //Iterate through all queues until you return a thread 
+  //starting from the highest priority queue	
+  for (int i=0; i<=4; i++)
+  {
+	int empty = is_rlist_empty(&SCHED[i]);
+    if(empty==0){
+      /* Get the head of the SCHED list */
+	  rlnode* sel = rlist_pop_front(&SCHED[i]);
+      TCB* next_thread = sel->tcb;
+
+	  if (next_thread == NULL)
 		next_thread = (current->state == READY) ? current : &CURCORE.idle_thread;
 
-	next_thread->its = QUANTUM;
+	  next_thread->its = QUANTUM;
 
-	return next_thread;
+	  return next_thread;
+    }
+  }
+  return NULL;
 }
+
 
 /*
   Make the process ready.
@@ -378,14 +409,45 @@ void yield(enum SCHED_CAUSE cause)
 
 	Mutex_Lock(&sched_spinlock);
 
+	switch(cause){
+
+		case SCHED_IO:
+			if(current->priority > 0)   {
+				current->priority--;
+			}
+			current->last_cause = current->curr_cause;
+			current->curr_cause  = SCHED_IO;	
+			break;
+
+		case SCHED_QUANTUM:
+			if(current->priority < 2)	{
+				current->priority++;
+			}
+			current->last_cause = current->curr_cause;
+			current->curr_cause  = SCHED_QUANTUM;	
+			break;
+
+		case SCHED_MUTEX:
+			if(current->priority < 4)	{
+				current->priority++;
+			}
+			current->last_cause = current->curr_cause;
+			current->curr_cause  = SCHED_MUTEX;	
+			break;
+
+		default:
+			current->last_cause = current->curr_cause;
+			current->curr_cause  = cause;	
+			break;
+	}
+
+
 	/* Update CURTHREAD state */
 	if (current->state == RUNNING)
 		current->state = READY;
 
 	/* Update CURTHREAD scheduler data */
 	current->rts = remaining;
-	current->last_cause = current->curr_cause;
-	current->curr_cause = cause;
 
 	/* Wake up threads whose sleep timeout has expired */
 	sched_wakeup_expired_timeouts();
@@ -393,6 +455,12 @@ void yield(enum SCHED_CAUSE cause)
 	/* Get next */
 	TCB* next = sched_queue_select(current);
 	assert(next != NULL);
+
+	if(current->state == READY){
+		next = current;
+	}else{
+		next = & CURCORE.idle_thread;
+	}
 
 	/* Save the current TCB for the gain phase */
 	CURCORE.previous_thread = current;
@@ -484,7 +552,9 @@ static void idle_thread()
  */
 void initialize_scheduler()
 {
-	rlnode_init(&SCHED, NULL);
+	for(int i=0; i<MAX_QUEUE_NUMBER; i++){
+    	rlnode_init(&SCHED[i], NULL);
+    }
 	rlnode_init(&TIMEOUT_LIST, NULL);
 }
 
