@@ -1,3 +1,4 @@
+
 #include <assert.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -20,7 +21,7 @@
 
 /*
 	test_boot
-	
+
 	Test that the boot function executes the boot task and returns.
  */
 
@@ -1091,7 +1092,6 @@ BOOT_TEST(test_join_main_thread,
 	int main_thread(int argl, void* args) {
 		mttid = ThreadSelf();
 		ASSERT(CreateThread(notmain_thread,0,NULL)!=NOTHREAD);
-		sleep_thread(1);
 		return 42;
 	}
 
@@ -1118,6 +1118,7 @@ BOOT_TEST(test_detach_main_thread,
 	int main_thread(int argl, void* args) {
 		mttid = ThreadSelf();
 		ASSERT(CreateThread(notmain_thread,0,NULL)!=NOTHREAD);
+		sleep_thread(1);
 		ASSERT(ThreadDetach(ThreadSelf())==0);
 		return 42;
 	}
@@ -1277,9 +1278,13 @@ BOOT_TEST(test_cyclic_joins,
 	/* Now, threads are in deadlock! To break the deadlock,
 	   detach thread 0. */
 	ThreadDetach(tids[0]);
-	/* To make sure that other threads escape deadlock, join them! */
+
+	/* Finally join any threads that may not be joined.
+	   Some of these ThreadJoin() may fail, but this thread will 
+	   exit after all 'join_thread' threads.
+	 */
 	for(unsigned int i=1; i<N; i++)
-		ASSERT(ThreadJoin(tids[i], NULL)==0);	
+		ThreadJoin(tids[i], NULL);	
 
 	return 0;
 }
@@ -2462,79 +2467,17 @@ BARE_TEST(dummy_user_test,
 	ASSERT(1+1==2);
 }
 
-BARE_TEST(simple_boot_test,
-	"A dummy test, feel free to edit it and copy it as needed."
-	)
-{
-	int dummy_function(int argl, void* args)
-	{
-		printf("Hello World. Input argl = %d\n", argl);
-		return 0;
-	}
-
-	int argl = 10;
-	void* args = malloc(argl);
-
-	boot(1, 0, dummy_function, argl, args);
-}
-
-BARE_TEST(thread_creation_test, "This checks if the new thread is stored properly.")
-{
-	int helloWorld(int argl, void* args)
-	{
-		fprintf(stderr, "This is the new thread\n");
-		return 0;
-	}
-
-
-	int dummy_process(int argl, void* args)
-	{
-		fprintf(stderr, "Argument argl: %d\n", argl);
-		CreateThread(helloWorld, argl, args);
-		return 0;
-	}	
-
-	int argl = 4;
-	void* args = malloc(4);
-
-	boot(1, 0, dummy_process, argl, args);
-
-}
-
-
-BARE_TEST(many_threads_creation, "This creates many threads.")
-{
-	int helloThread(int argl, void* args)
-	{
-		fprintf(stderr, "This is thread: %d\n", argl);
-		return 0;
-	}
-
-	int initializer(int argl, void* args)
-	{
-		for (int i=0; i<100; i++)
-		{
-			CreateThread(helloThread, i, args);
-		}
-		return 0;
-	}
-
-	int argl = 1;
-	void* args = malloc(1);
-
-	boot(1, 0, initializer, argl, args);
-}
-
 
 TEST_SUITE(user_tests, 
 	"These are tests defined by the user."
 	)
 {
-	&simple_boot_test,
-	&thread_creation_test,
-	&many_threads_creation,
+	&dummy_user_test,
 	NULL
 };
+
+
+
 
 
 int main(int argc, char** argv)
