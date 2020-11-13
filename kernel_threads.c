@@ -126,7 +126,7 @@ int sys_ThreadJoin(Tid_t tid, int* exitval){
   while(ptcb->exited==0 && ptcb->detached==0){
     //Thread might be exited or detached during while not before new cycle
     if(ptcb->exited==1) break;
-    if(ptcb->detached==1) 
+    if(ptcb->detached==1) return -1;
     kernel_wait(&ptcb->exit_cv, SCHED_USER);
   }
 
