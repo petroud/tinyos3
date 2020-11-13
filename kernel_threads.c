@@ -117,36 +117,27 @@ int sys_ThreadJoin(Tid_t tid, int* exitval){
     return -1;
   }
 
-  if(ptcb->detached==1){
-    return -1;
-  }
-
-  if(tid==NOTHREAD || ptcb->exited || tid == tidCur){
+  if(tid==NOTHREAD || tid == tidCur){
     return -1;
   }
 
   ptcb->refcount++;
 
   while(ptcb->exited==0 && ptcb->detached==0){
-    //Thread might be exited or detached during while not before new cycle
-    if(ptcb->exited==1) {
-      *exitval = ptcb->exitval;      
-      break;
-    }
-    if(ptcb->detached==1){
-      *exitval = ptcb->exitval;
-      return -1;
-    } 
     kernel_wait(&ptcb->exit_cv, SCHED_USER);
   }
-  
-  if(ptcb->exited==1){
-    kernel_broadcast(&ptcb->exit_cv);
-    ptcb->refcount--;
-    return 0;
+
+  if(exitval!=NULL){
+    *exitval = ptcb->exitval;  
   }
 
-  return -1;
+  if(ptcb->detached==1){
+    return -1;
+  }
+
+  ptcb->refcount--;
+
+  return 0;
 }
 
 
@@ -169,17 +160,19 @@ int sys_ThreadDetach(Tid_t tid)
   }
   
   //Check if the tid given is ZERO or if the corresponding PTCB is exited
-  if(tid==NOTHREAD || ptcb->exited == 1){
-    return -1;
-  }
+  if(tid==NOTHREAD) return -1;
+  
+  if(ptcb->exited == 1) return -1;
 
   //If everything is normal detach the thread which was given as argument
   ptcb->detached=1;
   kernel_broadcast(& ptcb->exit_cv);
-  ptcb->refcount=0;
+  ptcb->refcount=1;
 
   return 0;
 }
+
+
 
 /**
   @brief Terminate the current thread.
@@ -188,9 +181,9 @@ void sys_ThreadExit(int exitval)
 {
   PTCB* ptcb = (PTCB*)sys_ThreadSelf();
 
-      /* Mark the ptcb as exited and set the exit value upon the function parameter */
-    ptcb->exited = 1;
-    ptcb->exitval = exitval;
+  /* Mark the ptcb as exited and set the exit value upon the function parameter */
+  ptcb->exited = 1;
+  ptcb->exitval = exitval;
 
   /* Else the thread count of the PCB is reduced by 1 and the node corresponding to the ptcb of the thread terminated is deleted from the list of ptcbs */
   ptcb->tcb->owner_pcb->thread_count--;
@@ -239,7 +232,7 @@ void sys_ThreadExit(int exitval)
 
     /* Now, mark the process as exited. */
    curproc->pstate = ZOMBIE;
-    }
+  }
 
   kernel_broadcast(& ptcb->exit_cv);
   /* Release the kernel for future use */
