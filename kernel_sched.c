@@ -1,4 +1,3 @@
-
 #include <assert.h>
 #include <sys/mman.h>
 
@@ -11,13 +10,49 @@
 #include <valgrind/valgrind.h>
 #endif
 
+
+/********************************************
+	
+	Core table and CCB-related declarations.
+ *********************************************/
+
+/* Core control blocks */
+CCB cctx[MAX_CORES];
+
+
+/* 
+	The current core's CCB. This must only be used in a 
+	non-preemtpive context.
+ */
+#define CURCORE (cctx[cpu_core_id])
+
+/* 
+	The current thread. This is a pointer to the TCB of the thread 
+	currently executing on this core.
+	This must only be used in non-preemptive context.
+*/
+#define CURTHREAD (CURCORE.current_thread)
+
+#define MAX_QUEUE_NUMBER 40
+/*
+	This can be used in the preemptive context to
+	obtain the current thread.
+ */
+TCB* cur_thread()
+{
+  int preempt = preempt_off;
+  TCB* cur = CURTHREAD;
+  if(preempt) preempt_on;
+  return cur;
+}
+
+
+
 /*
    The thread layout.
   --------------------
-
   On the x86 (Pentium) architecture, the stack grows upward. Therefore, we
   can allocate the TCB at the top of the memory block used as the stack.
-
   +-------------+
   |   TCB       |
   +-------------+
@@ -29,11 +64,9 @@
   +-------------+
   | first frame |
   +-------------+
-
   Advantages: (a) unified memory area for stack and TCB (b) stack overrun will
   crash own thread, before it affects other threads (which may make debugging
   easier).
-
   Disadvantages: The stack cannot grow unless we move the whole TCB. Of course,
   we do not support stack growth anyway!
  */
@@ -89,6 +122,8 @@ void* allocate_thread(size_t size)
 #endif
 
 
+
+
 /*
   This is the function that is used to start normal threads.
 */
@@ -98,7 +133,7 @@ void gain(int preempt); /* forward */
 static void thread_start()
 {
 	gain(1);
-	CURTHREAD->thread_func();
+	cur_thread()->thread_func();
 
 	/* We are not supposed to get here! */
 	assert(0);
@@ -117,6 +152,7 @@ TCB* spawn_thread(PCB* pcb, PTCB* ptcb, void (*func)())
 	tcb->owner_pcb = pcb;
 	tcb->ptcb = ptcb;
 	ptcb->tcb = tcb;
+	tcb->priority = MAX_QUEUE_NUMBER/2;
 
 	/* Initialize the other attributes */
 	tcb->type = NORMAL_THREAD;
@@ -175,20 +211,15 @@ void release_TCB(TCB* tcb)
  *  Note: the scheduler routines are all in the non-preemptive domain.
  */
 
-/* Core control blocks */
-CCB cctx[MAX_CORES];
-
 /*
   The scheduler queue is implemented as a doubly linked list. The
   head and tail of this list are stored in  SCHED.
-
   Also, the scheduler contains a linked list of all the sleeping
   threads with a timeout.
-
   Both of these structures are protected by @c sched_spinlock.
 */
 
-rlnode SCHED; /* The scheduler queue */
+rlnode SCHED[MAX_QUEUE_NUMBER]; /* The scheduler queue */
 rlnode TIMEOUT_LIST; /* The list of threads with a timeout */
 Mutex sched_spinlock = MUTEX_INIT; /* spinlock for scheduler queue */
 
@@ -202,7 +233,6 @@ void ici_handler()
 
 /*
   Possibly add TCB to the scheduler timeout list.
-
   *** MUST BE CALLED WITH sched_spinlock HELD ***
 */
 static void sched_register_timeout(TCB* tcb, TimerDuration timeout)
@@ -225,13 +255,12 @@ static void sched_register_timeout(TCB* tcb, TimerDuration timeout)
 
 /*
   Add TCB to the end of the scheduler list.
-
   *** MUST BE CALLED WITH sched_spinlock HELD ***
 */
 static void sched_queue_add(TCB* tcb)
 {
 	/* Insert at the end of the scheduling list */
-	rlist_push_back(&SCHED, &tcb->sched_node);
+	rlist_push_back(&SCHED[tcb->priority], &tcb->sched_node);
 
 	/* Restart possibly halted cores */
 	cpu_core_restart_one();
@@ -239,7 +268,6 @@ static void sched_queue_add(TCB* tcb)
 
 /*
 	Adjust the state of a thread to make it READY.
-
 	*** MUST BE CALLED WITH sched_spinlock HELD ***
  */
 static void sched_make_ready(TCB* tcb)
@@ -265,7 +293,6 @@ static void sched_make_ready(TCB* tcb)
 /*
   Scan the \c TIMEOUT_LIST for threads whose timeout has expired, and
   wake them up.
-
   *** MUST BE CALLED WITH sched_spinlock HELD ***
 */
 static void sched_wakeup_expired_timeouts()
@@ -284,13 +311,22 @@ static void sched_wakeup_expired_timeouts()
 /*
   Remove the head of the scheduler list, if any, and
   return it. Return NULL if the list is empty.
-
   *** MUST BE CALLED WITH sched_spinlock HELD ***
 */
 static TCB* sched_queue_select(TCB* current)
-{
+{	
+	int max_prior = 0;
+
+	for(int i=MAX_QUEUE_NUMBER-1; i>=0; i--){
+		int empty = is_rlist_empty(&SCHED[i]);
+
+		if(empty == 0){
+			max_prior = i;
+			break;
+		}
+	}
 	/* Get the head of the SCHED list */
-	rlnode* sel = rlist_pop_front(&SCHED);
+	rlnode* sel = rlist_pop_front(&SCHED[max_prior]);
 
 	TCB* next_thread = sel->tcb; /* When the list is empty, this is NULL */
 
@@ -337,9 +373,9 @@ void sleep_releasing(Thread_state state, Mutex* mx, enum SCHED_CAUSE cause,
 {
 	assert(state == STOPPED || state == EXITED);
 
-	TCB* tcb = CURTHREAD;
 
 	int preempt = preempt_off;
+	TCB* tcb = CURTHREAD;
 	Mutex_Lock(&sched_spinlock);
 
 	/* mark the thread as stopped or exited */
@@ -378,6 +414,34 @@ void yield(enum SCHED_CAUSE cause)
 
 	Mutex_Lock(&sched_spinlock);
 
+	switch (cause)
+	{
+	case SCHED_IO:
+		if(current->priority < MAX_QUEUE_NUMBER-1){
+			current->priority++;
+			rlist_append(&SCHED[current->priority], &current->sched_node);
+		}
+		break;
+	
+	case SCHED_QUANTUM:
+		if(current->priority > 0){
+			current->priority--;
+			rlist_append(&SCHED[current->priority], &current->sched_node);
+		}
+		break;
+	
+	case SCHED_MUTEX:
+		if(current->last_cause == SCHED_MUTEX){
+			if(current->priority > 0){
+			current->priority--;
+			rlist_append(&SCHED[current->priority], &current->sched_node);
+			}
+		}
+		break;		
+
+	default:
+		break;
+	}
 	/* Update CURTHREAD state */
 	if (current->state == RUNNING)
 		current->state = READY;
@@ -416,7 +480,6 @@ void yield(enum SCHED_CAUSE cause)
   This is done mostly from inside yield().
   However, for threads that are executed for the first time, this
   has to happen in thread_start.
-
   The 'preempt' argument determines whether preemption is turned on
   in the new timeslice. When returning to threads in the non-preemptive
   domain (e.g., waiting at some driver), we need to not turn preemption
@@ -484,7 +547,9 @@ static void idle_thread()
  */
 void initialize_scheduler()
 {
-	rlnode_init(&SCHED, NULL);
+	for(int i=0; i<MAX_QUEUE_NUMBER; i++){
+	rlnode_init(&SCHED[i], NULL);
+	}
 	rlnode_init(&TIMEOUT_LIST, NULL);
 }
 
