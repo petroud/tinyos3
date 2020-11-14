@@ -33,6 +33,7 @@ CCB cctx[MAX_CORES];
 */
 #define CURTHREAD (CURCORE.current_thread)
 
+
 #define MAX_QUEUE_NUMBER 40	
 #define CALL_LIMIT 4000
 /*
@@ -475,7 +476,6 @@ void yield(enum SCHED_CAUSE cause)
 	if(yield_calls > CALL_LIMIT){
 		boost();
 	}
-
 	/* Update CURTHREAD state */
 	if (current->state == RUNNING)
 		current->state = READY;
