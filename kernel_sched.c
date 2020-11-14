@@ -33,7 +33,9 @@ CCB cctx[MAX_CORES];
 */
 #define CURTHREAD (CURCORE.current_thread)
 
-#define MAX_QUEUE_NUMBER 40
+
+#define MAX_QUEUE_NUMBER 40	
+#define CALL_LIMIT 4000
 /*
 	This can be used in the preemptive context to
 	obtain the current thread.
@@ -77,6 +79,7 @@ TCB* cur_thread()
  */
 volatile unsigned int active_threads = 0;
 Mutex active_threads_spinlock = MUTEX_INIT;
+int yield_calls = 0;
 
 /* This is specific to Intel Pentium! */
 #define SYSTEM_PAGE_SIZE (1 << 12)
@@ -400,6 +403,31 @@ void sleep_releasing(Thread_state state, Mutex* mx, enum SCHED_CAUSE cause,
 		preempt_on;
 }
 
+
+
+void boost(){
+
+	for(int i=0; i<MAX_QUEUE_NUMBER-1; i++){
+		int empty = is_rlist_empty(&SCHED[i]);
+
+		if(empty == 0){
+
+			while(!is_rlist_empty(&SCHED[i]) && i != MAX_QUEUE_NUMBER-1){
+
+				rlnode * current = rlist_pop_front(&SCHED[i]);
+				current->tcb->priority++;
+				rlist_append(&SCHED[i+1], current); 
+			}
+		}
+	}
+	yield_calls = 0;
+	//for each QUEUE
+	// refernece of tcb existing in this queue and increasing priority
+	// append lower priority queue to high priority queue
+	//end for
+}
+
+
 /* This function is the entry point to the scheduler's context switching */
 
 void yield(enum SCHED_CAUSE cause)
@@ -409,6 +437,8 @@ void yield(enum SCHED_CAUSE cause)
 
 	/* We must stop preemption but save it! */
 	int preempt = preempt_off;
+
+	yield_calls++;
 
 	TCB* current = CURTHREAD; /* Make a local copy of current process, for speed */
 
@@ -441,6 +471,10 @@ void yield(enum SCHED_CAUSE cause)
 
 	default:
 		break;
+	}
+
+	if(yield_calls > CALL_LIMIT){
+		boost();
 	}
 	/* Update CURTHREAD state */
 	if (current->state == RUNNING)
