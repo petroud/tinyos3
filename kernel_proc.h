@@ -73,18 +73,6 @@ typedef struct process_control_block {
 PTCB* spawn_ptcb(PCB* pcb);
 
 /**
- * @brief Increases the PTCB's refcount.
- * 
- **/
-void rcinc(PTCB* ptcb);
-
-/**
- * @brief Decreases the PTCB's refcount.
- * 
- **/
-void rcdec(PTCB* ptcb);
-
-/**
   @brief Initialize the process table.
 
   This function is called during kernel initialization, to initialize
