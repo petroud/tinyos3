@@ -30,27 +30,12 @@ PTCB* spawn_ptcb(PCB* pcb)
 	return ptcb;
 }
 
-/*
-  Increase this PTCB's refcount.
-*/
-void rcinc(PTCB* ptcb)
-{
-  ptcb->refcount ++;
-}
-
-/*
-  Decrease this PTCB's refcount.
-*/
-void rcdec(PTCB* ptcb)
-{
-  ptcb->refcount --;
-
-  if(ptcb->refcount == 0)
-  {
-    free(ptcb);
-  }
-}
-
+/**
+ *
+	This function is provided as an argument to spawn_thread,
+	to handle the execution and the exit procedure of the thread
+  of a PTCB. 
+ */
 void start_common_thread()
 {
   int exitval;
@@ -69,26 +54,36 @@ void start_common_thread()
   */
 Tid_t sys_CreateThread(Task task, int argl, void* args)
 {
+  //The thread will be created in the current calling-running process
   PCB* curproc = CURPROC;
 
+  //Initialize a new PTCB
   PTCB* ptcb = spawn_ptcb(CURPROC);
 
+  //Store the task and the parameters of it in the ptcb so they can be
+  //accessible from the thread later
   ptcb->task = task;
   ptcb->argl = argl;
   ptcb->args = args;
 
+  //Initialize the PTCB node to connect it with itself and insert it 
+  //in the list of the PTCBs of the process
   rlist_push_back(& curproc->ptcb_list, rlnode_init(&ptcb->ptcb_list_node, ptcb));
 
+
+  //The process has a new thread!
   curproc->thread_count++;
 
-
   if(task!=NULL){
+    //Create a TCB and initialize it with according parameters and show it the way it will be started and exited
     TCB* new_thread = spawn_thread(curproc, ptcb, start_common_thread);
+    //Make the thread READY
     wakeup(new_thread);
     ASSERT(curproc->thread_count == rlist_len(& curproc->ptcb_list));
     return (Tid_t)ptcb;
   }
 
+  //Usually we dont get here
   return -1;
 }
 
@@ -113,30 +108,36 @@ int sys_ThreadJoin(Tid_t tid, int* exitval){
 
   //Check if the PTCB exists in the PTCB list of the current process
   if(rlist_find(& CURPROC->ptcb_list,ptcb,NULL) == NULL){
-    //If it does not exist in the list or the find function returns NULL then error returns
     return -1;
   }
 
+  //If the Tid_t is invalid or if the thread tries to join itself return error
   if(tid==NOTHREAD || tid == tidCur){
     return -1;
   }
 
+  //The kernel wait will use a reference to the PTCB so we increase the counter
   ptcb->refcount++;
 
+  //While the joined thread isn't exited or detached all the joiners are waiting through kernel_wait function
+  //the Cond_Var to be in exited state
   while(ptcb->exited==0 && ptcb->detached==0){
     kernel_wait(&ptcb->exit_cv, SCHED_USER);
   }
 
+  //The exitval might be NULL we don't want to do a NULL assignment
   if(exitval!=NULL){
     *exitval = ptcb->exitval;  
   }
 
+  //If the joined thread had became detached after joiners are attached to it an error occurs 
   if(ptcb->detached==1){
     return -1;
   }
 
   ptcb->refcount--;
 
+  //Joining succeed
   return 0;
 }
 
@@ -167,6 +168,7 @@ int sys_ThreadDetach(Tid_t tid)
   //If everything is normal detach the thread which was given as argument
   ptcb->detached=1;
   kernel_broadcast(& ptcb->exit_cv);
+  //Reset the references coutner of the PTCB to initial value
   ptcb->refcount=1;
 
   return 0;
@@ -190,6 +192,7 @@ void sys_ThreadExit(int exitval)
 
   PCB* curproc = CURPROC;
 
+  //Only if the last thread of the PCB is exiting, the process will be terminated too
   if(CURPROC->thread_count == 0){
       /* Do all the other cleanup we want here, close files etc. */
     if(curproc->args) {
