@@ -34,8 +34,8 @@ CCB cctx[MAX_CORES];
 #define CURTHREAD (CURCORE.current_thread)
 
 
-#define MAX_QUEUE_NUMBER 30	
-#define CALL_LIMIT 2000
+#define MAX_QUEUE_NUMBER 30
+#define CALL_LIMIT 7000
 /*
 	This can be used in the preemptive context to
 	obtain the current thread.
