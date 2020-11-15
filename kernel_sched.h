@@ -99,8 +99,8 @@ enum SCHED_CAUSE {
 */
 typedef struct thread_control_block {
 	PCB* owner_pcb; /**< @brief This is null for a free TCB */
-  PTCB* ptcb; /**< @brief This is the PTCB that owns this TCB */
-  int priority; 
+  PTCB* ptcb;     /**< @brief This is the PTCB that owns this TCB */
+  int priority;   /**< @brief This is the execution priority level of this TCB */
   
 	cpu_context_t context; /**< @brief The thread context */
 
@@ -133,7 +133,7 @@ typedef struct thread_control_block {
 } TCB;
 
 /**
- * @brief The thread control block
+ * @brief The process thread control block
  * 
  *  This type of object is used for the multi-threaded design of the OS. Every PCB object can be 
  * linked to "N" PTCB objects and every PTCB object is linked to only one TCB object.
@@ -146,7 +146,7 @@ typedef struct process_thread_control_block{
   int argl;         /**< @brief The main thread's argument length*/
   void* args;       /**< @brief The main thread's argument string*/
 
-  int exitval;
+  int exitval; 
 
   int exited;       /**< @brief 0 if it hasn't exited, 1 if it has exited*/
   int detached;     /**< @brief 0 if it hasn't detached, 1 if it has detached*/
