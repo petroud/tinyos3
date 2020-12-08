@@ -449,14 +449,12 @@ void yield(enum SCHED_CAUSE cause)
 	case SCHED_IO:
 		if(current->priority < MAX_QUEUE_NUMBER-1){
 			current->priority++;
-			rlist_append(&SCHED[current->priority], &current->sched_node);
 		}
 		break;
 	
 	case SCHED_QUANTUM:
 		if(current->priority > 0){
 			current->priority--;
-			rlist_append(&SCHED[current->priority], &current->sched_node);
 		}
 		break;
 	
@@ -464,7 +462,6 @@ void yield(enum SCHED_CAUSE cause)
 		if(current->last_cause == SCHED_MUTEX){
 			if(current->priority > 0){
 			current->priority--;
-			rlist_append(&SCHED[current->priority], &current->sched_node);
 			}
 		}
 		break;		
