@@ -1,6 +1,9 @@
 #include "tinyos.h"
 #include "kernel_streams.h"
 #include "kernel_proc.h"
+#include "kernel_cc.h"
+#include "kernel_sched.h"
+
 
 #define PIPE_BUFFER_SIZE 8192	//size of buffer
 
@@ -32,6 +35,8 @@ typedef struct pipe_control_block {
 
 	uint w_position, r_position;
 
+	uint capacity;
+
 	char BUFFER[PIPE_BUFFER_SIZE];
 
 } pipe_cb;
@@ -41,11 +46,11 @@ pipe_cb* pipe_init(){
 
 	pipe_cb* pipe = (pipe_cb*)xmalloc(sizeof(pipe_cb));
 	
-	assert(pipe);
-
 	pipe->r_position = pipe->w_position = 0;
 	pipe->has_data = COND_INIT;
 	pipe->has_space = COND_INIT;
+
+	pipe->capacity = PIPE_BUFFER_SIZE-1;
 
 	return pipe;	
 }
@@ -57,10 +62,17 @@ int sys_Pipe(pipe_t* pipe)
 	FCB *fcbs[2];
 	Fid_t fids[2];
 
-	assert(FCB_reserve(2,fids,fcbs));
+
+	int retval = FCB_reserve(2,fids,fcbs);
+
+    if(retval == 0){
+		return -1;
+	}
 
 	pipe_cb* newPipe = pipe_init();
-	assert(newPipe);
+	if(newPipe==NULL){
+		return -1;
+	}
 
 	newPipe->reader = fcbs[0];
 	newPipe->writer = fcbs[1];
@@ -78,33 +90,105 @@ int sys_Pipe(pipe_t* pipe)
 }
 
 
+
 int pipe_read(void* this, char* buffer, unsigned int size){
 	
 	pipe_cb* curPipe = (pipe_cb*)this;
 
-	if(curPipe==NULL || size<=0){
+	if(curPipe==NULL || size<=0 || curPipe->reader == NULL){
 		return -1;
 	}
 
+	int i = 0;
+	for(i=0; i<size; i++){
 
-	for(int i=0; i<=size; i++){
-		
+		while(curPipe->writer!=NULL && curPipe->capacity == PIPE_BUFFER_SIZE-1){
+			kernel_broadcast(&curPipe->has_data);
+			kernel_wait(&curPipe->has_data,SCHED_PIPE);
+		}
+
+	 	if(curPipe->writer==NULL && curPipe->capacity == PIPE_BUFFER_SIZE-1){
+			return i;
+		}
+
 		buffer[i] = curPipe->BUFFER[curPipe->r_position];
 
-		curPipe->r_position = curPipe->r_position + 1;
+		curPipe->r_position++;
+
+		if(curPipe->r_position==PIPE_BUFFER_SIZE){
+			curPipe->r_position = 0;
+		}
+
+		curPipe->capacity++;
 	}
 
-	return 4;
+	return i;
 }
 
 
 
 int pipe_write(void* this, const char* buffer, unsigned int size){
-	return -1;
+
+	pipe_cb* curPipe = (pipe_cb*)this;
+	
+	if(curPipe==NULL || size<=0 || curPipe->writer == NULL || curPipe->reader == NULL){
+		return -1;
+	}
+
+	int i = 0;
+	for(i=0; i<size; i++){
+
+		while(curPipe->reader!=NULL && curPipe->capacity == 0){
+			kernel_broadcast(&curPipe->has_data);
+			kernel_wait(&curPipe->has_data,SCHED_PIPE);
+		}
+
+	 	if(curPipe->reader==NULL && curPipe->capacity == 0){
+			return i;
+		}
+		
+		curPipe->BUFFER[curPipe->w_position] = buffer[i];
+
+		curPipe->w_position++;
+
+		if(curPipe->w_position == PIPE_BUFFER_SIZE){
+			curPipe->w_position = 0;
+		}
+
+		curPipe->capacity--;
+	}
+	
+	return i;
 }
+
+
+
+
 int pipe_close_reader(void* this){
-	return -1;
+
+	pipe_cb* curPipe = (pipe_cb*)this;
+
+	if(curPipe==NULL || curPipe->reader == NULL){
+		return -1;
+	}
+	
+	curPipe->reader=NULL;
+
+	return 0;
 }
+
+
 int pipe_close_writer(void* this){
-	return -1;
+
+	pipe_cb* curPipe = (pipe_cb*)this;
+	if(curPipe==NULL || curPipe->writer == NULL){
+		return -1;
+	}
+
+	curPipe->writer=NULL;
+	if(curPipe->reader!=NULL){
+		kernel_broadcast(&curPipe->has_data);
+	}
+
+	return 0;
 }
