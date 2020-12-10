@@ -93,17 +93,23 @@ int sys_Pipe(pipe_t* pipe)
 
 int pipe_read(void* this, char* buffer, unsigned int size){
 	
+
 	pipe_cb* curPipe = (pipe_cb*)this;
 
 	if(curPipe==NULL || size<=0 || curPipe->reader == NULL){
 		return -1;
 	}
 
+	//EOF
+	if(curPipe->writer==NULL && curPipe->r_position == curPipe->w_position){
+		return 0;
+	}
+
 	int i = 0;
 	for(i=0; i<size; i++){
 
 		while(curPipe->writer!=NULL && curPipe->capacity == PIPE_BUFFER_SIZE-1){
-			kernel_broadcast(&curPipe->has_data);
+			kernel_broadcast(&curPipe->has_space);
 			kernel_wait(&curPipe->has_data,SCHED_PIPE);
 		}
 
@@ -111,9 +117,10 @@ int pipe_read(void* this, char* buffer, unsigned int size){
 			return i;
 		}
 
+		
 		buffer[i] = curPipe->BUFFER[curPipe->r_position];
 
-		curPipe->r_position++;
+		curPipe->r_position = (curPipe->r_position + 1);
 
 		if(curPipe->r_position==PIPE_BUFFER_SIZE){
 			curPipe->r_position = 0;
@@ -122,7 +129,9 @@ int pipe_read(void* this, char* buffer, unsigned int size){
 		curPipe->capacity++;
 	}
 
+	kernel_broadcast(&curPipe->has_space);
 	return i;
+
 }
 
 
@@ -131,6 +140,7 @@ int pipe_write(void* this, const char* buffer, unsigned int size){
 
 	pipe_cb* curPipe = (pipe_cb*)this;
 	
+
 	if(curPipe==NULL || size<=0 || curPipe->writer == NULL || curPipe->reader == NULL){
 		return -1;
 	}
@@ -138,10 +148,15 @@ int pipe_write(void* this, const char* buffer, unsigned int size){
 	int i = 0;
 	for(i=0; i<size; i++){
 
+		
 		while(curPipe->reader!=NULL && curPipe->capacity == 0){
 			kernel_broadcast(&curPipe->has_data);
-			kernel_wait(&curPipe->has_data,SCHED_PIPE);
+			kernel_wait(&curPipe->has_space,SCHED_PIPE);
 		}
+
+		if(curPipe->writer == NULL || curPipe->reader == NULL){
+			return -1;
+		}	
 
 	 	if(curPipe->reader==NULL && curPipe->capacity == 0){
 			return i;
@@ -149,7 +164,7 @@ int pipe_write(void* this, const char* buffer, unsigned int size){
 		
 		curPipe->BUFFER[curPipe->w_position] = buffer[i];
 
-		curPipe->w_position++;
+		curPipe->w_position = (curPipe->w_position+1);
 
 		if(curPipe->w_position == PIPE_BUFFER_SIZE){
 			curPipe->w_position = 0;
@@ -158,6 +173,7 @@ int pipe_write(void* this, const char* buffer, unsigned int size){
 		curPipe->capacity--;
 	}
 	
+	kernel_broadcast(&curPipe->has_data);
 	return i;
 }
 
