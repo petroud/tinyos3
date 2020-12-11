@@ -7,6 +7,17 @@
 
 typedef struct socket_control_block socket_cb;
 
+int socket_read(void* this, char* buffer, unsigned int size);
+int socket_write(void* this, const char* buffer, unsigned int size);
+int socket_close(void* this);
+
+static file_ops socket_operations = {
+    .Open = NULL,
+    .Read = socket_read,
+    .Write = socket_write,
+    .Close = socket_close
+};
+
 
 typedef struct lsocket{
     rlnode queue;
