@@ -137,6 +137,7 @@ int sys_ThreadJoin(Tid_t tid, int* exitval){
 
   ptcb->refcount--;
 
+
   //Joining succeed
   return 0;
 }
@@ -229,12 +230,12 @@ void sys_ThreadExit(int exitval)
      rlist_push_front(& curproc->parent->exited_list, &curproc->exited_node);
       kernel_broadcast(& curproc->parent->child_exit);
     }
-
+    
     /* Disconnect my main_thread */
     curproc->main_thread = NULL;
 
     /* Now, mark the process as exited. */
-   curproc->pstate = ZOMBIE;
+    curproc->pstate = ZOMBIE;
   }
 
   kernel_broadcast(& ptcb->exit_cv);
