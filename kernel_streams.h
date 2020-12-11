@@ -130,6 +130,12 @@ FCB* get_fcb(Fid_t fid);
 #define PIPE_BUFFER_SIZE 131072	//size of buffer
 
 
+
+int pipe_read(void* this, char* buffer, unsigned int size);
+int pipe_write(void* this, const char* buffer, unsigned int size);
+int pipe_close_reader(void* this);
+int pipe_close_writer(void* this);
+
 typedef struct pipe_control_block { 
 	
 	FCB *reader, *writer;
@@ -144,5 +150,8 @@ typedef struct pipe_control_block {
 	char BUFFER[PIPE_BUFFER_SIZE];
 
 } pipe_cb;
+
+
+pipe_cb* pipe_init();
 
 #endif

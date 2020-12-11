@@ -4,12 +4,6 @@
 #include "kernel_cc.h"
 #include "kernel_sched.h"
 
-
-int pipe_read(void* this, char* buffer, unsigned int size);
-int pipe_write(void* this, const char* buffer, unsigned int size);
-int pipe_close_reader(void* this);
-int pipe_close_writer(void* this);
-
 static file_ops readOperations = {
 	.Open = NULL,
 	.Read = pipe_read,

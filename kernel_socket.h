@@ -42,6 +42,18 @@ typedef enum stype{
 }socket_type;
 
 
+typedef struct connection_request {
+
+    int admitted;
+    socket_cb* peer;
+
+    CondVar connected_cv;
+
+    rlnode queue_node;
+
+}connection_request;
+
+
 typedef struct socket_control_block{
     unsigned int refcount;
     FCB* fcb;
