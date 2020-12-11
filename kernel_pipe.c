@@ -5,7 +5,7 @@
 #include "kernel_sched.h"
 
 
-#define PIPE_BUFFER_SIZE 8192	//size of buffer
+#define PIPE_BUFFER_SIZE 131072	//size of buffer
 
 int pipe_read(void* this, char* buffer, unsigned int size);
 int pipe_write(void* this, const char* buffer, unsigned int size);
