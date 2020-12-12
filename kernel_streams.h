@@ -145,7 +145,7 @@ typedef struct pipe_control_block {
 
 	unsigned int w_position, r_position;
 
-	unsigned int elements;
+	unsigned int capacity;
 
 	char BUFFER[PIPE_BUFFER_SIZE];
 

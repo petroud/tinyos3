@@ -287,7 +287,7 @@ void initialize_pipe(pipe_cb* pipecb, FCB* reader, FCB* writer) {
     pipecb->has_space = COND_INIT;
     pipecb->has_data = COND_INIT;
 
-    pipecb->elements = 0;
+    pipecb->capacity= 0;
 
     pipecb->reader = reader;
     pipecb->writer = writer;

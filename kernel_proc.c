@@ -5,7 +5,6 @@
 #include "kernel_streams.h"
 #include "unit_testing.h"
 
-
 /* 
  The process table and related system calls:
  - Exec
@@ -318,41 +317,38 @@ void sys_Exit(int exitval)
 }
 
 typedef struct info_control_block {
-	uint readPos;
+	uint iterator;
   procinfo curinfo;
 } info_cb;
 
 
-int sysinfo_read(void *argvoid, char *buf, unsigned int size) {
-  
+int sysinfo_read(void* argvoid, char *buf, unsigned int size)
+{
   info_cb* icb = (info_cb*)argvoid;
 
-  Pid_t cur_pid;
-  Pid_t cur_ppid;
+  Pid_t cur_pid = -1;
+  Pid_t cur_ppid = -1;
 
-  while (icb->readPos <= MAX_PROC) {
-    icb->readPos += 1;
+  while (icb->iterator <= MAX_PROC) {
+    icb->iterator += 1;
 
-    if(icb->readPos == MAX_PROC){
-      icb->readPos=1;
+    if(icb->iterator == MAX_PROC){
+      icb->iterator=1;
       return -1;
     }
 
-    if(PT[icb->readPos].pstate!=FREE){
-      cur_pid = icb->readPos;               
-      
-      PCB* parent = PT[icb->readPos].parent; 
-
+    if(PT[icb->iterator].pstate!=FREE){
+      cur_pid = icb->iterator;                
       int i;
+      PCB* parent = PT[icb->iterator].parent; 
+
       for(i = 0; i < MAX_PROC; i++){            
         if(&PT[i] == parent)                    
-          break;                                
-      
+        break;                               
+      }
 
-        cur_ppid = i;                             
-        break;
-      } 
-
+      cur_ppid = i;                             
+      break;
     }
   }
 
@@ -361,21 +357,22 @@ int sysinfo_read(void *argvoid, char *buf, unsigned int size) {
 
 
 
-  if(PT[icb->readPos].pstate==ZOMBIE){        
+  if(PT[icb->iterator].pstate==ZOMBIE){      
     icb->curinfo.alive = 0; 
-  }else{
+  }
+  else{
     icb->curinfo.alive = 1; 
   }
 
-  icb->curinfo.thread_count = PT[icb->readPos].thread_count;             
-  icb->curinfo.main_task=PT[icb->readPos].main_task;                   
-  icb->curinfo.argl=PT[icb->readPos].argl;                         
+  icb->curinfo.thread_count = PT[icb->iterator].thread_count;             
+  icb->curinfo.main_task=PT[icb->iterator].main_task;                     
+  icb->curinfo.argl=PT[icb->iterator].argl;                               
 
-  memcpy(icb->curinfo.args, PT[icb->readPos].args, PROCINFO_MAX_ARGS_SIZE);  
+  memcpy(icb->curinfo.args, PT[icb->iterator].args, PROCINFO_MAX_ARGS_SIZE);  
 
   memcpy(buf,&(icb->curinfo),size);                               
 
-  return size;	
+  return size;
 }
 
 int sysinfo_close(void *argvoid) {
@@ -409,7 +406,7 @@ Fid_t sys_OpenInfo(){
 
   info_cb* icb = (info_cb*)xmalloc(sizeof(info_cb));
 
-  icb->readPos = 0;
+  icb->iterator = 1;
   
   fcb[0]->streamobj = icb;
   fcb[0]->streamfunc = &info_operations;

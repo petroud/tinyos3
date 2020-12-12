@@ -100,7 +100,7 @@ Fid_t sys_Accept(Fid_t lsock)
 	socket->refcount++;
 
 
-	while((rlist_len(&socket->listener_s.queue) == 0)){
+	while(is_rlist_empty(&socket->listener_s.queue)){
 		kernel_wait(&socket->listener_s.req_available, SCHED_PIPE);
 	}
 
@@ -256,6 +256,21 @@ int socket_close(void* this){
 
 	if(socket == NULL){
 		return -1;
+	}
+
+	socket->refcount--;
+
+	if(socket->type == SOCKET_LISTENER){
+		kernel_broadcast(&socket->listener_s.req_available);
+	}
+
+	if(socket->type == SOCKET_PEER){
+		pipe_close_reader(socket->peer_s.read_pipe);
+		pipe_close_writer(socket->peer_s.write_pipe);
+	}
+
+	if(socket->refcount==0){
+		free(socket);
 	}
 
 	PORT_MAP[socket->port] = NULL;
