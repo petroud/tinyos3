@@ -97,7 +97,6 @@ int FCB_reserve(size_t num, Fid_t *fid, FCB** fcb)
 }
 
 
-
 void FCB_unreserve(size_t num, Fid_t *fid, FCB** fcb)
 {
     PCB* cur = CURPROC;
@@ -279,5 +278,18 @@ int sys_OpenNull()
 Fid_t sys_OpenTerminal(unsigned int termno)
 {
   return open_stream(DEV_SERIAL, termno);
+}
+
+void initialize_pipe(pipe_cb* pipecb, FCB* reader, FCB* writer) {
+    pipecb->w_position = 0;
+    pipecb->r_position = 0;
+
+    pipecb->has_space = COND_INIT;
+    pipecb->has_data = COND_INIT;
+
+    pipecb->capacity = 0;
+
+    pipecb->reader = reader;
+    pipecb->writer = writer;
 }
 

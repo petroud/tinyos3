@@ -326,10 +326,102 @@ void sys_Exit(int exitval)
   sys_ThreadExit(exitval);
 }
 
+typedef struct info_control_block {
+	uint readPos;
+  procinfo curinfo;
+} info_cb;
 
 
-Fid_t sys_OpenInfo()
-{
-	return NOFILE;
+int sysinfo_read(void *argvoid, char *buf, unsigned int size) {
+  
+  info_cb* icb = (info_cb*)argvoid;
+
+  Pid_t cur_pid;
+  Pid_t cur_ppid;
+
+  while (icb->readPos <= MAX_PROC) {
+    icb->readPos += 1;
+
+    if(icb->readPos == MAX_PROC){
+      icb->readPos=1;
+      return -1;
+    }
+
+    if(PT[icb->readPos].pstate!=FREE){
+      cur_pid = icb->readPos;               
+      
+      PCB* parent = PT[icb->readPos].parent; 
+
+      int i;
+      for(i = 0; i < MAX_PROC; i++){            
+        if(&PT[i] == parent)                    
+          break;                                
+      
+
+      cur_ppid = i;                             
+      break;
+    }
+
+  }
+
+  icb->curinfo.pid=cur_pid;                 
+  icb->curinfo.ppid=cur_ppid;               
+
+
+
+  if(PT[icb->readPos].pstate==ZOMBIE){        
+    icb->curinfo.alive = 0; 
+  }else{
+    icb->curinfo.alive = 1; 
+  }
+
+  icb->curinfo.thread_count = PT[icb->readPos].thread_count;             
+  icb->curinfo.main_task=PT[icb->readPos].main_task;                   
+  icb->curinfo.argl=PT[icb->readPos].argl;                         
+
+  memcpy(icb->curinfo.args, PT[icb->readPos].args, PROCINFO_MAX_ARGS_SIZE);  
+
+  memcpy(buf,&(icb->curinfo),size);                               
+
+  return size;	
 }
 
+int sysinfo_close(void *argvoid) {
+	info_cb* icb= (info_cb*)argvoid;
+
+  if(icb!=NULL){
+    icb = NULL;
+    free(icb);
+    return 0;
+  }
+
+  return -1;
+}
+
+file_ops info_operations= {
+		.Open = NULL,
+		.Read = sysinfo_read,
+		.Write = NULL,
+		.Close = sysinfo_close
+};
+
+
+Fid_t sys_OpenInfo(){
+
+  Fid_t fid[1];
+  FCB* fcb[1];
+
+  if(!FCB_reserve(1,fid,fcb)){
+    return NOFILE;
+  }
+
+  info_cb* icb = (info_cb*)xmalloc(sizeof(info_cb));
+
+  icb->readPos = 1;
+  icb->writePos = 1;
+  
+  fcb[0]->streamobj = icb;
+  fcb[0]->streamfunc = &info_operations;
+
+  return fid[0];
+}

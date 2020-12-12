@@ -31,7 +31,6 @@
 */
 
 
-
 /** @brief The file control block.
 
 	A file control block provides a uniform object to the
@@ -128,6 +127,31 @@ void FCB_unreserve(size_t num, Fid_t *fid, FCB** fcb);
 FCB* get_fcb(Fid_t fid);
 
 
-/** @} */
+#define PIPE_BUFFER_SIZE 131072	//size of buffer
+
+
+
+int pipe_read(void* this, char* buffer, unsigned int size);
+int pipe_write(void* this, const char* buffer, unsigned int size);
+int pipe_close_reader(void* this);
+int pipe_close_writer(void* this);
+
+typedef struct pipe_control_block { 
+	
+	FCB *reader, *writer;
+
+	CondVar has_space; 
+	CondVar has_data;
+
+	unsigned int w_position, r_position;
+
+	unsigned int capacity;
+
+	char BUFFER[PIPE_BUFFER_SIZE];
+
+} pipe_cb;
+
+
+pipe_cb* pipe_init();
 
 #endif
