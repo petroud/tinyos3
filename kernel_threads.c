@@ -79,7 +79,6 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
     TCB* new_thread = spawn_thread(curproc, ptcb, start_common_thread);
     //Make the thread READY
     wakeup(new_thread);
-    ASSERT(curproc->thread_count == rlist_len(& curproc->ptcb_list));
     return (Tid_t)ptcb;
   }
 
