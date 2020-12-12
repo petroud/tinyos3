@@ -185,7 +185,6 @@ Pid_t sys_Exec(Task call, int argl, void* args)
    */
   if(call != NULL) {
     PTCB* ptcb = spawn_ptcb(newproc);
-    ASSERT(ptcb!=NULL);
 
     TCB* main_thread = spawn_thread(newproc, ptcb, start_main_thread);
     
@@ -193,24 +192,16 @@ Pid_t sys_Exec(Task call, int argl, void* args)
     ptcb->argl = argl;
     ptcb->args = args;
 
-    rlnode_init(& ptcb->ptcb_list_node, NULL);
-
+    rlnode_init(& ptcb->ptcb_list_node, ptcb);
     rlnode_init(& newproc->ptcb_list, NULL);
-    rlnode* node = (rlnode*) malloc(sizeof(rlnode));
-    rlnode_new(node)->obj = ptcb;
-    rlist_push_back(& newproc->ptcb_list, node);
+
+    rlist_push_back(& newproc->ptcb_list, &ptcb->ptcb_list_node);
 
     newproc->thread_count++;
     newproc->main_thread = main_thread;
     
-    ASSERT(is_rlist_empty(& ptcb->ptcb_list_node));
-    ASSERT(rlist_find(& newproc->ptcb_list, ptcb, NULL) != NULL);
-    ASSERT(rlist_len(& newproc->ptcb_list) == 1);
+    wakeup(newproc->main_thread);
 
-    int valueWokenUp = wakeup(newproc->main_thread);
-
-    ASSERT(valueWokenUp == 1);
-    ASSERT(newproc->thread_count == 1);
   }
 
 
@@ -358,10 +349,11 @@ int sysinfo_read(void *argvoid, char *buf, unsigned int size) {
           break;                                
       
 
-      cur_ppid = i;                             
-      break;
-    }
+        cur_ppid = i;                             
+        break;
+      } 
 
+    }
   }
 
   icb->curinfo.pid=cur_pid;                 
@@ -417,8 +409,7 @@ Fid_t sys_OpenInfo(){
 
   info_cb* icb = (info_cb*)xmalloc(sizeof(info_cb));
 
-  icb->readPos = 1;
-  icb->writePos = 1;
+  icb->readPos = 0;
   
   fcb[0]->streamobj = icb;
   fcb[0]->streamfunc = &info_operations;

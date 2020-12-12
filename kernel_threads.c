@@ -68,7 +68,8 @@ Tid_t sys_CreateThread(Task task, int argl, void* args)
 
   //Initialize the PTCB node to connect it with itself and insert it 
   //in the list of the PTCBs of the process
-  rlist_push_back(& curproc->ptcb_list, rlnode_init(&ptcb->ptcb_list_node, ptcb));
+  rlnode_init(&ptcb->ptcb_list_node, ptcb);
+  rlist_push_back(& curproc->ptcb_list, &ptcb->ptcb_list_node);
 
 
   //The process has a new thread!
@@ -124,17 +125,22 @@ int sys_ThreadJoin(Tid_t tid, int* exitval){
     kernel_wait(&ptcb->exit_cv, SCHED_USER);
   }
 
-  //The exitval might be NULL we don't want to do a NULL assignment
-  if(exitval!=NULL){
-    *exitval = ptcb->exitval;  
-  }
-
   //If the joined thread had became detached after joiners are attached to it an error occurs 
   if(ptcb->detached==1){
     return -1;
   }
 
+  //The exitval might be NULL we don't want to do a NULL assignment
+  if(exitval!=NULL){
+    *exitval = ptcb->exitval;  
+  }
+
   ptcb->refcount--;
+
+  if(ptcb->refcount==1){
+    rlist_remove(&ptcb->ptcb_list_node);
+    free(ptcb);
+  }
 
   //Joining succeed
   return 0;
@@ -234,9 +240,26 @@ void sys_ThreadExit(int exitval)
 
     /* Now, mark the process as exited. */
    curproc->pstate = ZOMBIE;
+
+   while(!is_rlist_empty(&curproc->ptcb_list)){
+     rlnode* nodeDel = rlist_pop_front(&curproc->ptcb_list);
+     free(nodeDel->ptcb);
+   }
+
+   kernel_sleep(EXITED, SCHED_USER);
+   
+   return;
   }
 
+
   kernel_broadcast(& ptcb->exit_cv);
+
+  if(ptcb->detached==1){
+    rlist_remove(&ptcb->ptcb_list_node);
+    free(ptcb);
+  }
+
+
   /* Release the kernel for future use */
   kernel_sleep(EXITED, SCHED_USER);
 }

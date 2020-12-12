@@ -127,7 +127,7 @@ void FCB_unreserve(size_t num, Fid_t *fid, FCB** fcb);
 FCB* get_fcb(Fid_t fid);
 
 
-#define PIPE_BUFFER_SIZE 131072	//size of buffer
+#define PIPE_BUFFER_SIZE 8192	//size of buffer
 
 
 
@@ -145,7 +145,7 @@ typedef struct pipe_control_block {
 
 	unsigned int w_position, r_position;
 
-	unsigned int capacity;
+	unsigned int elements;
 
 	char BUFFER[PIPE_BUFFER_SIZE];
 
