@@ -321,57 +321,42 @@ typedef struct info_control_block {
   procinfo curinfo;
 } info_cb;
 
+int sysinfo_read(void* argvoid, char* buff, unsigned int size) {
 
-int sysinfo_read(void* argvoid, char *buf, unsigned int size)
-{
-  info_cb* icb = (info_cb*)argvoid;
+  info_cb* icb = (info_cb*) argvoid;
 
-  Pid_t cur_pid = -1;
-  Pid_t cur_ppid = -1;
+  Pid_t current_pid = -1;
 
-  while (icb->iterator <= MAX_PROC) {
-    icb->iterator += 1;
+  while (icb->iterator<MAX_PROC) {
 
-    if(icb->iterator == MAX_PROC){
-      icb->iterator=1;
-      return -1;
-    }
-
-    if(PT[icb->iterator].pstate!=FREE){
-      cur_pid = icb->iterator;                
-      int i;
-      PCB* parent = PT[icb->iterator].parent; 
-
-      for(i = 0; i < MAX_PROC; i++){            
-        if(&PT[i] == parent)                    
-        break;                               
-      }
-
-      cur_ppid = i;                             
+    if(&PT[icb->iterator].pstate != FREE){
+      current_pid = icb->iterator;
+      
+      icb->iterator++;
       break;
     }
+
+    icb->iterator++;
+  }
+ 
+  PCB* curPCB = get_pcb(current_pid);
+
+  if(curPCB == NULL){
+    return -1;
   }
 
-  icb->curinfo.pid=cur_pid;                 
-  icb->curinfo.ppid=cur_ppid;               
+  icb->curinfo.pid = get_pid(curPCB);
+  icb->curinfo.ppid = get_pid(curPCB->parent);  
+  
+  icb->curinfo.alive = curPCB->pstate == ALIVE ? 1 : 0;
 
+  icb->curinfo.main_task = curPCB->main_task;
+  icb->curinfo.argl = curPCB->argl;
+  icb->curinfo.thread_count = curPCB->thread_count;
+  
+  memcpy(&icb->curinfo.args, curPCB->args, (curPCB->argl <= PROCINFO_MAX_ARGS_SIZE ? curPCB->argl : PROCINFO_MAX_ARGS_SIZE));
 
-
-  if(PT[icb->iterator].pstate==ZOMBIE){      
-    icb->curinfo.alive = 0; 
-  }
-  else{
-    icb->curinfo.alive = 1; 
-  }
-
-  icb->curinfo.thread_count = PT[icb->iterator].thread_count;             
-  icb->curinfo.main_task=PT[icb->iterator].main_task;                     
-  icb->curinfo.argl=PT[icb->iterator].argl;                               
-
-  memcpy(icb->curinfo.args, PT[icb->iterator].args, PROCINFO_MAX_ARGS_SIZE);  
-
-  memcpy(buf,&(icb->curinfo),size);                               
-
+  memcpy(buff, (char*)&icb->curinfo, size);
   return size;
 }
 
