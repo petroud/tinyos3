@@ -169,8 +169,10 @@ int pipe_close_reader(void* this){
 	}
 	
 	curPipe->reader=NULL;
-	curPipe->writer=NULL;
 
+	if(curPipe->writer == NULL){
+		free(curPipe);
+	}
 	return 0;
 }
 
@@ -185,6 +187,10 @@ int pipe_close_writer(void* this){
 	curPipe->writer=NULL;
 	if(curPipe->reader!=NULL){
 		kernel_broadcast(&curPipe->has_data);
+	}
+
+	if(curPipe->reader==NULL){
+		free(curPipe);
 	}
 
 	return 0;
