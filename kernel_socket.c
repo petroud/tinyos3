@@ -2,9 +2,10 @@
 #include "kernel_socket.h"
 #include "kernel_streams.h"
 
-
+//The table of ports on which sockets can be created
 socket_cb* PORT_MAP[MAX_PORT+1];
 
+//Allocates new a socket and bonds it with FCBs reserved in the OS 
 Fid_t sys_Socket(port_t port)
 {
 	if(port < NOPORT || port> MAX_PORT){
@@ -16,6 +17,8 @@ Fid_t sys_Socket(port_t port)
 	FCB** fcbs = (FCB**)xmalloc(sizeof(FCB*));
 	Fid_t* fids = (Fid_t*)xmalloc(sizeof(Fid_t));
 
+	//Reserve an FCB in FIDT and bond it with an Fid_t
+	//which is the identity of the socket
 	int retval = FCB_reserve(1,fids,fcbs);
 
 	if(retval == 0){
@@ -23,6 +26,8 @@ Fid_t sys_Socket(port_t port)
 	}
 
 	socket->port = port;
+
+	//The socket is initially unbounded
 	socket->type = SOCKET_UNBOUND;
 	socket->fcb = fcbs[0];
 	socket->refcount = 0;
@@ -30,11 +35,17 @@ Fid_t sys_Socket(port_t port)
 	fcbs[0]->streamobj = socket;
 	fcbs[0]->streamfunc = &socket_operations;
 
-
+	//Return the new fid
 	return fids[0];
 }
 
 
+// Promotes the socket corresponding to Fid_t #sock to 
+// be a listener. Some checks for errors are being made 
+// and then the type of socket is changed to LISTENER. The 
+// queue of request is initialized and the Cond_Var that is a flag
+// for new requests arriving is being set to COND_INIT. The socket 
+// is put at last in PORT_MAP table.
 int sys_Listen(Fid_t sock)
 {
 
@@ -46,7 +57,6 @@ int sys_Listen(Fid_t sock)
 
 	socket_cb* socket = (socket_cb*)fcb->streamobj;
 
-	//Null or already in use
 	if(socket==NULL){
 		return -1;
 	}
@@ -73,7 +83,11 @@ int sys_Listen(Fid_t sock)
 	return 0;
 }
 
-
+//Accept waits until a request arrives in the queue of requests of the listening socket
+//When a requests arrives,the socket bound to it is promoted to PEER and gets connected 
+//with the corresponding socket accessed from the PORT_MAP which is also now a PEER. Two new pipes
+//are respectively the writer/reader (and vice versa) of each other. After the two sockets
+//gets connected with "ring" the Cond_Var that we have a connection.
 Fid_t sys_Accept(Fid_t lsock)
 {
 
@@ -149,6 +163,14 @@ Fid_t sys_Accept(Fid_t lsock)
 }
 
 
+//It creates a connection request and prepares a socket for connection.
+//After the creation of it and the bonding with the socket corresponding 
+//to Fid_t #sock, the request is being pushed back in the list of the 
+//requests of the listening socket. We ring the Cond_Var that a new 
+//request waits. We wait till connection is established. An error
+//may have occured and the request was not admitted, in that case we 
+//can do nothing and we return error. Else we have a connection and the socket
+//#sock is promoted to PEER.
 int sys_Connect(Fid_t sock, port_t port, timeout_t timeout)
 {
 	FCB* fcb = get_fcb(sock);
@@ -204,6 +226,9 @@ int sys_Connect(Fid_t sock, port_t port, timeout_t timeout)
 }
 
 
+//Terminates the connection between two sockets
+//by closing the pipes that connect them both. We have
+//3 ways to do this. 
 int sys_ShutDown(Fid_t sock, shutdown_mode how)
 {
 	FCB* fcb = get_fcb(sock);
@@ -216,6 +241,9 @@ int sys_ShutDown(Fid_t sock, shutdown_mode how)
 	switch (how)
 	{
 		case SHUTDOWN_READ:
+			//If the socket's read pipe is already closed
+			//and freed we dont want to try again because
+			//a Segmentation Fault is on the way!!!
 			if(socket->peer_s.read_pipe!=NULL){
 				pipe_close_reader(socket->peer_s.read_pipe);
 				socket->peer_s.read_pipe = NULL;
@@ -224,6 +252,7 @@ int sys_ShutDown(Fid_t sock, shutdown_mode how)
 			}
 			break;
 		case SHUTDOWN_WRITE:
+			//Same reason....
 			if(socket->peer_s.write_pipe!=NULL){
 				pipe_close_writer(socket->peer_s.write_pipe);
 				socket->peer_s.write_pipe = NULL;
@@ -232,7 +261,7 @@ int sys_ShutDown(Fid_t sock, shutdown_mode how)
 			}
 			break;
 		case SHUTDOWN_BOTH:
-
+			//Again the same....
 			if(socket->peer_s.read_pipe!=NULL){
 				pipe_close_reader(socket->peer_s.read_pipe);
 				socket->peer_s.read_pipe = NULL;
@@ -252,7 +281,7 @@ int sys_ShutDown(Fid_t sock, shutdown_mode how)
 }
 
 
-
+//How the socket knows how to read and what to return?
 int socket_read(void* this, char* buffer, unsigned int size){
 	socket_cb* socket = (socket_cb*)this;
 	
@@ -260,10 +289,10 @@ int socket_read(void* this, char* buffer, unsigned int size){
 		return -1;
 	}
 
-
 	return pipe_read(socket->peer_s.read_pipe, buffer, size);
 }
 
+//How the socket knows how to write and what to return?
 int socket_write(void* this, const char* buffer, unsigned int size){
 	socket_cb* socket = (socket_cb*)this;
 
@@ -274,6 +303,12 @@ int socket_write(void* this, const char* buffer, unsigned int size){
 	return pipe_write(socket->peer_s.write_pipe,buffer,size);
 }
 
+
+//Closes a socket and removes it from the PORT_MAP table
+//It frees the allocated space if there are no references to 
+//the socket. A socket before it closes it may be a listener 
+//so if a request wait we will have the chance again to serve it. 
+//So we ring the Cond_Var.
 int socket_close(void* this){
 
 	socket_cb* socket = this;
@@ -281,9 +316,7 @@ int socket_close(void* this){
 	if(socket == NULL){
 		return -1;
 	}
-
 	socket->refcount--;
-
 	if(socket->type == SOCKET_LISTENER){
 		PORT_MAP[socket->port] = NULL;
 		kernel_broadcast(&socket->listener_s.req_available);
@@ -297,7 +330,6 @@ int socket_close(void* this){
 	if(socket->refcount==0){
 		free(socket);
 	}
-
 
 	return 0;
 }

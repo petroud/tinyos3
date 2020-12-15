@@ -321,30 +321,36 @@ typedef struct info_control_block {
   procinfo curinfo;
 } info_cb;
 
+//Construct the stream containing the info for process 
+//It kinda reads it...
 int sysinfo_read(void* argvoid, char* buff, unsigned int size) {
 
   info_cb* icb = (info_cb*) argvoid;
 
   Pid_t current_pid = -1;
-
+  
+  //iterate through the table of the proccesses by using the iterator
   while (icb->iterator<MAX_PROC) {
-
+    
+    //if it finds a table cell that isn't free, keeps the pid of it because its a process
     if(&PT[icb->iterator].pstate != FREE){
       current_pid = icb->iterator;
       
       icb->iterator++;
       break;
     }
-
+    //keeps looking for some processes in the next call 
     icb->iterator++;
   }
  
   PCB* curPCB = get_pcb(current_pid);
 
+  //it may happen...
   if(curPCB == NULL){
     return -1;
   }
 
+  //takes the info of the process and places it in to the icb procinfo block
   icb->curinfo.pid = get_pid(curPCB);
   icb->curinfo.ppid = get_pid(curPCB->parent);  
   
@@ -354,12 +360,18 @@ int sysinfo_read(void* argvoid, char* buff, unsigned int size) {
   icb->curinfo.argl = curPCB->argl;
   icb->curinfo.thread_count = curPCB->thread_count;
   
+  //copy the arguments of the process to the icb procinfo block
   memcpy(&icb->curinfo.args, curPCB->args, (curPCB->argl <= PROCINFO_MAX_ARGS_SIZE ? curPCB->argl : PROCINFO_MAX_ARGS_SIZE));
 
+  //copy the whole stream to the buffer argument
   memcpy(buff, (char*)&icb->curinfo, size);
   return size;
 }
 
+//finds the icb variable
+//returns 0 if the sysinfo_close close the icb
+//returns -1 if the variable was allready null
+//Then frees the allocated space for it
 int sysinfo_close(void *argvoid) {
 	info_cb* icb= (info_cb*)argvoid;
 
@@ -379,7 +391,8 @@ file_ops info_operations= {
 		.Close = sysinfo_close
 };
 
-
+//Finds space for the variable of the info control block,
+//assigns some parameters to the object and the functions of the stream
 Fid_t sys_OpenInfo(){
 
   Fid_t fid[1];
