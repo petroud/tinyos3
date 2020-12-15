@@ -10,6 +10,10 @@ int pipe_write(void* this, const char* buffer, unsigned int size);
 int pipe_close_reader(void* this);
 int pipe_close_writer(void* this);
 
+
+//Opeartion sets for pipes 
+
+//Read operation set
 static file_ops readOperations = {
 	.Open = NULL,
 	.Read = pipe_read,
@@ -17,6 +21,7 @@ static file_ops readOperations = {
 	.Close = pipe_close_reader
 };
 
+//Write operation set
 static file_ops writeOperations = {
 	.Open = NULL,
 	.Read = NULL,
@@ -25,6 +30,7 @@ static file_ops writeOperations = {
 };
 
 
+//Allocates a pipe and initializes some of each values
 pipe_cb* pipe_init(){
 
 	pipe_cb* pipe = (pipe_cb*)xmalloc(sizeof(pipe_cb));
@@ -33,6 +39,7 @@ pipe_cb* pipe_init(){
 	pipe->has_data = COND_INIT;
 	pipe->has_space = COND_INIT;
 
+	//Capacity variable counts how many bytes we are capable of storing the pipe buffer
 	pipe->capacity = PIPE_BUFFER_SIZE-1;
 
 	return pipe;	
